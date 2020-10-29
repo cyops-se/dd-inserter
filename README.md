@@ -1,1 +1,3 @@
-# dd-inserter
+# dd-inserter - Simple process data TimescaleDB inserter
+Receives one way UDP messages produced by [dd-opcda](https://github.com/cyops-se/dd-opcda) and inserts the data into a timescale database.
+Typical usage is as the outer end of a data diode used to replicate real time data from a sensitive system to a potentially hostile network in order to maintain full network isolation of the sensitive network.
