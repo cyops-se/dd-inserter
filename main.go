@@ -1,11 +1,14 @@
 package main
 
 import (
+	"container/list"
 	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
+	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -19,9 +22,18 @@ type DataPoint struct {
 }
 
 type DataMessage struct {
-	Count  int         `json:"count"`
-	Points []DataPoint `json:"points"`
+	Counter uint64      `json:"counter"`
+	Count   int         `json:"count"`
+	Points  []DataPoint `json:"points"`
 }
+
+type batch struct {
+	builder strings.Builder
+	count   uint64
+}
+
+var queueLock sync.Mutex
+var queue *list.List
 
 func main() {
 	pghost := flag.String("host", "localhost", "The Postgres database server")
@@ -30,10 +42,17 @@ func main() {
 	pgpassword := flag.String("password", "password", "User password")
 	dbname := flag.String("db", "demo", "The Postgres database name")
 	port := flag.Int("listen", 4357, "The inserter UDP listen port")
+	authident := flag.Bool("ident", false, "Use local user identification, not password")
 	flag.Parse()
 
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		*pghost, *pgport, *pguser, *pgpassword, *dbname)
+	queue = list.New()
+
+	psqlInfo := fmt.Sprintf("dbname=%s sslmode=disable", *dbname)
+	if !*authident {
+		psqlInfo = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+			*pghost, *pgport, *pguser, *pgpassword, *dbname)
+
+	}
 
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
@@ -49,21 +68,12 @@ func main() {
 
 	defer db.Close()
 
+	go processMessages(db)
 	go ticker(db)
 	go listener(db, *port)
 
 	// Sleep forever
 	<-(chan int)(nil)
-}
-
-func insert(db *sql.DB, t time.Time, n string, v interface{}, q int) error {
-	statement := `insert into measurements(time, name, value, quality) values ($1, $2, $3, $4)`
-	if _, err := db.Exec(statement, t, n, v, q); err != nil {
-		// fmt.Println("Failed to insert data into the database, err:", err)
-		return err
-	}
-
-	return nil
 }
 
 func listener(db *sql.DB, port int) {
@@ -72,37 +82,101 @@ func listener(db *sql.DB, port int) {
 		Port: port,
 		IP:   net.ParseIP("0.0.0.0"),
 	}
+
 	ser, err := net.ListenUDP("udp", &addr)
 	if err != nil {
 		fmt.Printf("Failed to listen %v\n", err)
 		return
 	}
+
 	for {
 		n, _, err := ser.ReadFromUDP(p)
-		// n, remoteaddr, err := ser.ReadFromUDP(p)
-		// fmt.Printf("Read a message from %v %s \n", remoteaddr, p)
 		if err != nil {
 			fmt.Printf("Some error  %v", err)
 			continue
 		}
 
 		var msg DataMessage
-		if err = json.Unmarshal(p[:n], &msg); err != nil {
+		if err := json.Unmarshal(p[:n], &msg); err != nil {
 			fmt.Println("Failed to unmarshal data, err:", err)
 			return
 		}
 
-		count := 0
-		if msg.Count > 0 {
-			for _, v := range msg.Points {
-				if err = insert(db, v.Time, v.Name, v.Value, v.Quality); err == nil {
-					count++
-				}
-			}
+		queueLock.Lock()
+		queue.PushBack(msg)
+		queueLock.Unlock()
+	}
+}
 
-			fmt.Println(count, "of", len(msg.Points), "items inserted")
+func processMessages(db *sql.DB) {
+
+	counter := uint64(0)
+	b := initBatch()
+	for {
+		queueLock.Lock()
+		e := queue.Front()
+		queueLock.Unlock()
+
+		if e == nil || e.Value == nil {
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+
+		msg := e.Value.(DataMessage)
+
+		queueLock.Lock()
+		queue.Remove(e)
+		queueLock.Unlock()
+
+		if msg.Counter-counter > 1 {
+			fmt.Printf("MISSING MESSAGE, got counter: %d, expected %d, difference: %d\n", msg.Counter, counter+1, (msg.Counter - counter))
+		}
+		counter = msg.Counter
+
+		if msg.Count > 0 {
+			if full := b.appendBatch(msg.Points); full {
+				b.insertBatch(db)
+				b = initBatch()
+			}
 		}
 	}
+}
+
+func initBatch() *batch {
+	b := &batch{}
+	b.builder.Grow(4096)
+	fmt.Fprintf(&b.builder, "insert into measurements(time, name, value, quality) values ")
+	return b
+}
+
+func (b *batch) appendBatch(datapoints []DataPoint) bool {
+	for _, v := range datapoints {
+		switch v.Value.(type) {
+		case time.Time: // Skip
+		case string: // Skip
+		case bool: // Skip
+		default:
+			if b.count > 0 {
+				fmt.Fprintf(&b.builder, ",")
+			}
+			fmt.Fprintf(&b.builder, "('%s', '%s', %v, %d)", v.Time.Format(time.RFC3339), v.Name, v.Value, v.Quality)
+			b.count++
+		}
+	}
+
+	return b.count > 1000
+}
+
+func (b *batch) insertBatch(db *sql.DB) error {
+	if b.count > 0 {
+		fmt.Fprintf(&b.builder, ";")
+		if _, err := db.Exec(b.builder.String()); err != nil {
+			fmt.Println(b.builder.String())
+			return err
+		}
+	}
+
+	return nil
 }
 
 func ticker(db *sql.DB) {
@@ -115,9 +189,6 @@ func ticker(db *sql.DB) {
 			fmt.Println("Database PING failed, err:", err)
 			return
 		}
-
-		insert(db, time.Now(), "testpoint.1", value, 1.0)
-		insert(db, time.Now(), "testpoint.2", 50.0-value, 1.0)
 
 		value += 0.1
 		if value > 50.0 {
