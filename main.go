@@ -34,6 +34,8 @@ type batch struct {
 
 var queueLock sync.Mutex
 var queue *list.List
+var debug *bool
+var batchSize *int
 
 func main() {
 	pghost := flag.String("host", "localhost", "The Postgres database server")
@@ -43,6 +45,8 @@ func main() {
 	dbname := flag.String("db", "demo", "The Postgres database name")
 	port := flag.Int("listen", 4357, "The inserter UDP listen port")
 	authident := flag.Bool("ident", false, "Use local user identification, not password")
+	debug = flag.Bool("d", false, "Enables some debug information")
+	batchSize = flag.Int("size", 1000, "Batch size in number of records to insert at a time")
 	flag.Parse()
 
 	queue = list.New()
@@ -94,6 +98,10 @@ func listener(db *sql.DB, port int) {
 		if err != nil {
 			fmt.Printf("Some error  %v", err)
 			continue
+		}
+
+		if *debug {
+			fmt.Println("Received data:", string(p[:n]))
 		}
 
 		var msg DataMessage
@@ -156,15 +164,17 @@ func (b *batch) appendBatch(datapoints []DataPoint) bool {
 		case string: // Skip
 		case bool: // Skip
 		default:
-			if b.count > 0 {
-				fmt.Fprintf(&b.builder, ",")
+			if v.Value != nil {
+				if b.count > 0 {
+					fmt.Fprintf(&b.builder, ",")
+				}
+				fmt.Fprintf(&b.builder, "('%s', '%s', %v, %d)", v.Time.Format(time.RFC3339), v.Name, v.Value, v.Quality)
+				b.count++
 			}
-			fmt.Fprintf(&b.builder, "('%s', '%s', %v, %d)", v.Time.Format(time.RFC3339), v.Name, v.Value, v.Quality)
-			b.count++
 		}
 	}
 
-	return b.count > 1000
+	return b.count > uint64(*batchSize)
 }
 
 func (b *batch) insertBatch(db *sql.DB) error {
