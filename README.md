@@ -3,13 +3,13 @@
 **cyops-se**: *This application is part of the cyops.se community and use the same language and terminology. If there are acronyms or descriptions here that are unknown or ambiguous, please visit the [documentations](https://github.com/cyops-se/docs) site to see if it is explained there. You are welcome to help us improve the content regardless if you find what you are looking for or not*.
 
 ## Introduction
-This application (```dd-inserter```) receives one way UDP messages produced by [dd-opcda](https://github.com/cyops-se/dd-opcda) and inserts the data into a timescale database.
+This application (```dd-inserter```) receives one way UDP messages produced by [dd-inserter](https://github.com/cyops-se/dd-inserter) and inserts the data into a timescale database.
 Typical usage is as the outer end of a data diode used to replicate real time data from a sensitive system to a potentially hostile network in order to maintain full network isolation of the sensitive network.
 
 ![example usage](./assets/diode-1.png)
 
 ## Overview
-```dd-inserter``` listens by default at UDP port 4357 (configurable) for messages sent by ```dd-opcda``` through a data diode. The messages are interpreted and stored in a specified Timescale database (localhost by default).
+```dd-inserter``` listens by default at UDP port 4357 (configurable) for messages sent by ```dd-inserter``` through a data diode. The messages are interpreted and stored in a specified Timescale database (localhost by default).
 
 ***This is a very basic solution with a lot of opportunities for improvements like reliable streaming, forward error correction, reliable notifications of data loss, operator friendly initiation of re-transmission, etc***
 

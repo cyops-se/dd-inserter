@@ -1,208 +1,60 @@
+// Copyright 2021 cyops.se. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
 package main
 
 import (
-	"container/list"
-	"database/sql"
-	"encoding/json"
 	"flag"
-	"fmt"
-	"net"
-	"strings"
-	"sync"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
+	"github.com/cyops-se/dd-inserter/db"
+	"github.com/cyops-se/dd-inserter/emitters"
+	"github.com/cyops-se/dd-inserter/engine"
+	"github.com/cyops-se/dd-inserter/listeners"
 	_ "github.com/lib/pq"
+	"golang.org/x/sys/windows/svc"
 )
 
-type DataPoint struct {
-	Time    time.Time   `json:"t"`
-	Name    string      `json:"n"`
-	Value   interface{} `json:"v"`
-	Quality int         `json:"q"`
-}
-
-type DataMessage struct {
-	Counter uint64      `json:"counter"`
-	Count   int         `json:"count"`
-	Points  []DataPoint `json:"points"`
-}
-
-type batch struct {
-	builder strings.Builder
-	count   uint64
-}
-
-var queueLock sync.Mutex
-var queue *list.List
-var debug *bool
-var batchSize *int
-
 func main() {
-	pghost := flag.String("host", "localhost", "The Postgres database server")
-	pgport := flag.Int("port", 5432, "The Postgres database port")
-	pguser := flag.String("user", "postgres", "Username that are granted access to the database")
-	pgpassword := flag.String("password", "password", "User password")
-	dbname := flag.String("db", "demo", "The Postgres database name")
-	port := flag.Int("listen", 4357, "The inserter UDP listen port")
-	authident := flag.Bool("ident", false, "Use local user identification, not password")
-	debug = flag.Bool("d", false, "Enables some debug information")
-	batchSize = flag.Int("size", 1000, "Batch size in number of records to insert at a time")
+	// csvfile := flag.String("csv", "", "Filename of a CSV formatted file with timestamped data to import from in the format 'name,time,value,quality' (one line header, time in format 2019-01-01 00:06:00)")
 	flag.Parse()
 
-	queue = list.New()
-
-	psqlInfo := fmt.Sprintf("dbname=%s sslmode=disable", *dbname)
-	if !*authident {
-		psqlInfo = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-			*pghost, *pgport, *pguser, *pgpassword, *dbname)
-
-	}
-
-	db, err := sql.Open("postgres", psqlInfo)
+	isIntSess, err := svc.IsAnInteractiveSession()
 	if err != nil {
-		fmt.Println("Failed to connect to the database, err:", err)
+		log.Fatalf("failed to determine if we are running in an interactive session: %v", err)
+	}
+	if !isIntSess {
+		// runService(svcName)
 		return
 	}
 
-	err = db.Ping()
-	if err != nil {
-		fmt.Println("Database PING failed, err:", err)
-		return
-	}
+	db.ConnectDatabase()
 
-	defer db.Close()
+	ts := &emitters.TimescaleEmitter{}
+	ts.InitEmitter()
 
-	go processMessages(db)
-	go ticker(db)
-	go listener(db, *port)
+	rmq := &emitters.RabbitMQEmitter{}
+	rmq.InitEmitter()
 
-	// Sleep forever
-	<-(chan int)(nil)
-}
+	udpdata := &listeners.UDPDataListener{}
+	udpdata.InitListener()
 
-func listener(db *sql.DB, port int) {
-	p := make([]byte, 2048)
-	addr := net.UDPAddr{
-		Port: port,
-		IP:   net.ParseIP("0.0.0.0"),
-	}
+	udpmeta := &listeners.UDPMetaListener{}
+	udpmeta.InitListener()
 
-	ser, err := net.ListenUDP("udp", &addr)
-	if err != nil {
-		fmt.Printf("Failed to listen %v\n", err)
-		return
-	}
+	go RunWeb()
+	go engine.InitDispatchers()
+	go emitters.RunDispatch()
 
-	for {
-		n, _, err := ser.ReadFromUDP(p)
-		if err != nil {
-			fmt.Printf("Some error  %v", err)
-			continue
-		}
+	// Sleep until interrupted
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	<-c
 
-		if *debug {
-			fmt.Println("Received data:", string(p[:n]))
-		}
-
-		var msg DataMessage
-		if err := json.Unmarshal(p[:n], &msg); err != nil {
-			fmt.Println("Failed to unmarshal data, err:", err)
-			return
-		}
-
-		queueLock.Lock()
-		queue.PushBack(msg)
-		queueLock.Unlock()
-	}
-}
-
-func processMessages(db *sql.DB) {
-
-	counter := uint64(0)
-	b := initBatch()
-	for {
-		queueLock.Lock()
-		e := queue.Front()
-		queueLock.Unlock()
-
-		if e == nil || e.Value == nil {
-			time.Sleep(50 * time.Millisecond)
-			continue
-		}
-
-		msg := e.Value.(DataMessage)
-
-		queueLock.Lock()
-		queue.Remove(e)
-		queueLock.Unlock()
-
-		if msg.Counter-counter > 1 {
-			fmt.Printf("MISSING MESSAGE, got counter: %d, expected %d, difference: %d\n", msg.Counter, counter+1, (msg.Counter - counter))
-		}
-		counter = msg.Counter
-
-		if msg.Count > 0 {
-			if full := b.appendBatch(msg.Points); full {
-				b.insertBatch(db)
-				b = initBatch()
-			}
-		}
-	}
-}
-
-func initBatch() *batch {
-	b := &batch{}
-	b.builder.Grow(4096)
-	fmt.Fprintf(&b.builder, "insert into measurements(time, name, value, quality) values ")
-	return b
-}
-
-func (b *batch) appendBatch(datapoints []DataPoint) bool {
-	for _, v := range datapoints {
-		switch v.Value.(type) {
-		case time.Time: // Skip
-		case string: // Skip
-		case bool: // Skip
-		default:
-			if v.Value != nil {
-				if b.count > 0 {
-					fmt.Fprintf(&b.builder, ",")
-				}
-				fmt.Fprintf(&b.builder, "('%s', '%s', %v, %d)", v.Time.Format(time.RFC3339), v.Name, v.Value, v.Quality)
-				b.count++
-			}
-		}
-	}
-
-	return b.count > uint64(*batchSize)
-}
-
-func (b *batch) insertBatch(db *sql.DB) error {
-	if b.count > 0 {
-		fmt.Fprintf(&b.builder, ";")
-		if _, err := db.Exec(b.builder.String()); err != nil {
-			fmt.Println(b.builder.String())
-			return err
-		}
-	}
-
-	return nil
-}
-
-func ticker(db *sql.DB) {
-	value := 0.1
-	timer := time.NewTicker(1 * time.Second)
-	for {
-		<-timer.C
-
-		if err := db.Ping(); err != nil {
-			fmt.Println("Database PING failed, err:", err)
-			return
-		}
-
-		value += 0.1
-		if value > 50.0 {
-			value = 0.1
-		}
-	}
+	log.Println("Exiting (waiting 1 sec) ...")
+	time.Sleep(time.Second * 1)
 }
