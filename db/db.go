@@ -15,25 +15,28 @@ func ConnectDatabase() {
 	// dsn := "user=dev password=hemligt dbname=dev host=localhost port=5432"
 	// database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Println("Failed to connect to database", err)
+		log.Println("Failed to connect to local database", err)
 		return
 	}
 
-	log.Println("Database connected!")
+	log.Println("Local database connected!")
 
 	// The User model is special due to the 'password' field, and has
 	// user specific routes
 	database.AutoMigrate(&types.User{})
 
 	// Generic CRUD data types
-	ConfigureTypes(database, types.Log{}, types.KeyValuePair{})
-	ConfigureTypes(database, types.User{}, types.Settings{})
-	ConfigureTypes(database, types.DataPointMeta{})
+	configureTypes(database, types.Log{}, types.KeyValuePair{})
+	configureTypes(database, types.User{}, types.Settings{})
+	configureTypes(database, types.DataPointMeta{}, &types.Listener{}, &types.Emitter{})
 
 	DB = database
 }
 
-func ConfigureTypes(database *gorm.DB, datatypes ...interface{}) {
+func InitContent() {
+}
+
+func configureTypes(database *gorm.DB, datatypes ...interface{}) {
 	for _, datatype := range datatypes {
 		stmt := &gorm.Statement{DB: database}
 		stmt.Parse(datatype)

@@ -33,21 +33,13 @@ func main() {
 	}
 
 	db.ConnectDatabase()
+	db.InitContent()
 
-	ts := &emitters.TimescaleEmitter{}
-	ts.InitEmitter()
-
-	rmq := &emitters.RabbitMQEmitter{}
-	rmq.InitEmitter()
-
-	udpdata := &listeners.UDPDataListener{}
-	udpdata.InitListener()
-
-	udpmeta := &listeners.UDPMetaListener{}
-	udpmeta.InitListener()
+	listeners.Init()
+	emitters.Init()
+	engine.InitDispatchers()
 
 	go RunWeb()
-	go engine.InitDispatchers()
 	go emitters.RunDispatch()
 
 	// Sleep until interrupted

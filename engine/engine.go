@@ -2,7 +2,6 @@ package engine
 
 import (
 	"container/list"
-	"fmt"
 	"log"
 	"math"
 	"sync"
@@ -19,6 +18,7 @@ var datapoints map[string]*types.VolatileDataPoint = make(map[string]*types.Vola
 var NewMsg chan types.DataMessage = make(chan types.DataMessage)
 var NewMeta chan []*types.DataPointMeta = make(chan []*types.DataPointMeta)
 var NewEmitMsg chan types.DataPoint = make(chan types.DataPoint)
+var NewEmitMetaMsg chan types.DataPointMeta = make(chan types.DataPointMeta)
 
 func GetGroups() ([]*interface{}, error) {
 	return nil, nil
@@ -123,14 +123,17 @@ func runMetaDispatch() {
 		for _, msgitem := range msg {
 			item := &types.DataPointMeta{Name: msgitem.Name, ID: uint(msgitem.ID), IntegratingDeadband: 0.3}
 			if err := db.DB.First(&item).Error; err != nil {
-				fmt.Println("Tag not found in database, creating:", msgitem.Name)
+				// fmt.Println("Tag not found in database, creating:", msgitem.Name)
 				db.DB.Create(&item)
 			}
 
 			if _, ok := datapoints[msgitem.Name]; !ok {
 				datapoints[msgitem.Name] = &types.VolatileDataPoint{}
-				fmt.Println("MAP now has", len(datapoints), "entries")
+				// fmt.Println("MAP now has", len(datapoints), "entries")
 			}
+
+			// Update emitters with new meta
+			NewEmitMetaMsg <- *msgitem
 		}
 	}
 }

@@ -3,6 +3,7 @@ package emitters
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 )
 
 type TimescaleEmitter struct {
-	EmitterBase
 	Host      string `json:"host"`
 	Port      int    `json:"port"`
 	User      string `json:"username"`
@@ -35,22 +35,60 @@ type batch struct {
 
 var debug *bool
 var batchSize *int
+var database *sql.DB
 
 func (emitter *TimescaleEmitter) InitEmitter() {
 	emitters = append(emitters, emitter)
+	emitter.connectdb()
 }
 
 func (emitter *TimescaleEmitter) ProcessMessage(dp *types.DataPoint) {
+	var err error
+	if _, ok := dp.Value.(float64); !ok {
+		return
+	}
+
+	var id int
 	// fmt.Println("TIMESCALE emitter processing message")
+	if err = database.QueryRow("select tag_id from measurements.tags where name=$1", dp.Name).Scan(&id); err != nil {
+		if err == sql.ErrNoRows {
+			database.QueryRow("insert into measurements.tags (name) values ($1) returning tag_id", dp.Name).Scan(&id)
+		}
+	}
+
+	if err == nil {
+		if _, err = database.Exec("insert into measurements.raw_measurements (tag, time, value, quality) values ($1, $2, $3, $4)", id, dp.Time, dp.Value, dp.Quality); err != nil {
+			fmt.Println("TIMESCALEDB process data insert failure:", err.Error())
+		}
+	} else {
+		fmt.Println("TIMESCALEDB insert process data failed, err:", err.Error())
+	}
 }
 
-func (emitter *TimescaleEmitter) run(msg *types.DataMessage) {
-	emitter.Host = "localhost"
+func (emitter *TimescaleEmitter) ProcessMeta(dp *types.DataPointMeta) {
+	// fmt.Println("TIMESCALE emitter processing META message")
+
+	var id int
+	if rowExists("select name from measurements.tags where name=$1", dp.Name) == false {
+		if err := database.QueryRow("insert into measurements.tags (name, description) values ($1, $2) returning tag_id", dp.Name, dp.Description).Scan(&id); err != nil {
+			fmt.Println("TIMESCALE failed to insert,", err.Error())
+		} else {
+			fmt.Println("TIMESCALE new META inserted,", id)
+		}
+	}
+}
+
+func (emitter *TimescaleEmitter) GetStats() *types.EmitterStatistics {
+	return nil
+}
+
+func (emitter *TimescaleEmitter) connectdb() {
+	emitter.Host = "timescaledb"
 	emitter.Port = 5432
-	emitter.User = "admin"
-	emitter.Password = "admin"
+	emitter.User = "dev"
+	emitter.Password = "hemligt"
 	emitter.Authident = false
-	emitter.Database = "processdata"
+	emitter.Database = "postgres"
 	emitter.Batchsize = 1000
 
 	psqlInfo := fmt.Sprintf("dbname=%s sslmode=disable", emitter.Database)
@@ -60,22 +98,33 @@ func (emitter *TimescaleEmitter) run(msg *types.DataMessage) {
 
 	}
 
-	db, err := sql.Open("postgres", psqlInfo)
+	database, err = sql.Open("postgres", psqlInfo)
 	if err != nil {
 		fmt.Println("Failed to connect to the database, err:", err)
 		return
 	}
 
-	err = db.Ping()
+	err = database.Ping()
 	if err != nil {
 		fmt.Println("Database PING failed, err:", err)
 		return
 	}
 
-	defer db.Close()
+	if _, err := database.Exec("insert into measurements.raw_measurements(time, tag, value, quality) values ('2021-09-10 13:00:00', 1, 45.6, 12)"); err != nil {
+		fmt.Println("TIMESCALE failed to insert,", err.Error())
+	}
 
-	go insert(emitter, db)
-	<-(chan int)(nil)
+	fmt.Println("TIMESCALE connected")
+}
+
+func rowExists(query string, args ...interface{}) bool {
+	var exists bool
+	query = fmt.Sprintf("SELECT exists (%s)", query)
+	err := database.QueryRow(query, args...).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		log.Fatalf("error checking if row exists '%s' %v", args, err)
+	}
+	return exists
 }
 
 func insert(ip *TimescaleEmitter, db *sql.DB) {

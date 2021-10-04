@@ -13,12 +13,11 @@ import (
 var prevMsg *types.DataMessage
 
 type UDPDataListener struct {
-	ListenerBase
 	Port int `json:"port"`
 }
 
 func (listener *UDPDataListener) InitListener() {
-	listener.RegisterListener()
+	listeners = append(listeners, listener)
 	go listener.run()
 }
 

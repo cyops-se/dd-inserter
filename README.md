@@ -30,7 +30,7 @@ Run the following commands to build a ```dd-inserter``` executable (Windows)
 # Installation
 ```dd-inserter``` is dependent on a local Timescale timeseries database with specific table structures. Instructions on how to install the Timescale timeseries database for use with ```dd-inserter``` (and Grafana) can be found [here!](./TIMESCALE.md)
 
-## Set up a timescale database for use with ```dd-inserter```
+## Set up a timescale database for use with ```dd-inserter``` version 0.1.0
 
 The application is currently hardcoded to use a specific hyper table and structure according to the following PostgreSQL commands as shown below.
 
@@ -52,3 +52,29 @@ If you get an error when creating the extension, it is probably because you didn
 
 
 
+## Set up a timescale database for use with ```dd-inserter``` version 0.2.0
+
+The application is currently hardcoded to use a specific hyper table and structure according to the following PostgreSQL commands as shown below.
+
+***You must now use the password entered during the installation of the PostgreSQL database engine***
+
+```
+> psql -U postgres
+Password for user postgres: XXXX
+```
+```
+psql# \c postgres
+psql# create table measurements.raw_measurements (time TIMESTAMPTZ NOT NULL, tag INTEGER NOT NULL, value DOUBLE PRECISION, quality INTEGER);
+psql# select create_hypertable('measurements.raw_measurements','time');
+psql# create sequence measurements.tags_tag_id_seq;
+psql# create table measurements.tags (tag_id integer NOT NULL DEFAULT nextval('measurements.tags_tag_id_seq'), name text, description text, location text, type text, unit text, min double precision, max double precision);
+
+psql# alter table measurements.tags add primary key(tag_id);
+psql# alter table measurements.tags add constraint tags_name_key unique (name);
+
+GRANT USAGE ON SEQUENCE tags_tag_id_seq TO [user];
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA measurements TO [user];
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA measurements TO [user];
+```
+
+If you get an error when creating the extension (select create_hypertable()), it is probably because you didn't restart the PostgreSQL windows service after installing TimescaleDB. See [this instruction](./TIMESCALE.md) for more information.

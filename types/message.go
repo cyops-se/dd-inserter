@@ -2,8 +2,6 @@ package types
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 const (
@@ -17,20 +15,6 @@ const (
 	UpdateTypeDeadband = iota
 	UpdateTypeDevNull  = iota
 )
-
-type DataListener struct {
-	gorm.Model
-	Name          string `json:"name"`
-	Description   string `json:"description"`
-	UdpTargetIP   string `json:"targetIP"`
-	UdpTargetPort int    `json:"targetport"`
-}
-
-type DataOmitter struct {
-	gorm.Model
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
 
 // Version 2 message types
 type DataPoint struct {

@@ -1,25 +1,26 @@
 package listeners
 
 import (
-	"gorm.io/gorm"
+	"github.com/cyops-se/dd-inserter/db"
+	"github.com/cyops-se/dd-inserter/types"
 )
 
-type Listener interface {
+type IListener interface {
 	InitListener()
 }
 
-type ListenerBase struct {
-	gorm.Model
-	Name             string `json:"name"`
-	Type             string `json:"type"`
-	MessagePerSecond uint64 `json:"mps"`
-}
-
-var listeners []*ListenerBase
+var listeners []IListener
 
 func RunDispatch() {
 }
 
-func (listener *ListenerBase) RegisterListener() {
-	listeners = append(listeners, listener)
+func Init() {
+	var listeners []types.Listener
+
+	db.DB.Find(&listeners)
+	udpdata := &UDPDataListener{}
+	udpdata.InitListener()
+
+	udpmeta := &UDPMetaListener{}
+	udpmeta.InitListener()
 }

@@ -11,12 +11,11 @@ import (
 )
 
 type UDPMetaListener struct {
-	ListenerBase
 	Port int `json:"port"`
 }
 
 func (listener *UDPMetaListener) InitListener() {
-	listener.RegisterListener()
+	listeners = append(listeners, listener)
 	go listener.run()
 }
 

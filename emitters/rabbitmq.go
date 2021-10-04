@@ -3,6 +3,7 @@ package emitters
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/cyops-se/dd-inserter/db"
 	"github.com/cyops-se/dd-inserter/types"
@@ -10,7 +11,6 @@ import (
 )
 
 type RabbitMQEmitter struct {
-	EmitterBase
 	Host      string `json:"host"`
 	Port      int    `json:"port"`
 	User      string `json:"username"`
@@ -20,13 +20,20 @@ type RabbitMQEmitter struct {
 	Batchsize int    `json:"batchsize"`
 }
 
+type RabbitMQDataPoint struct {
+	Signal    string    `json:"signal"`
+	Value     float64   `json:"value"`
+	Status    int       `json:"status"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
 var connection *amqp.Connection
 var channel *amqp.Channel
 var rqueue amqp.Queue
 var err error
 
 func (emitter *RabbitMQEmitter) InitEmitter() {
-	fmt.Println("RABBITMQ emitter processing message")
+	emitters = append(emitters, emitter)
 	connection, err = amqp.Dial("amqp://admin:hemligt@192.168.0.174:5672/")
 	if err != nil {
 		db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to connect RabbitMQ server: %v", err.Error()))
@@ -48,8 +55,6 @@ func (emitter *RabbitMQEmitter) InitEmitter() {
 		db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to declare queue: %v", err.Error()))
 		return
 	}
-
-	emitters = append(emitters, emitter)
 }
 
 func (emitter *RabbitMQEmitter) ProcessMessage(dp *types.DataPoint) {
@@ -57,12 +62,15 @@ func (emitter *RabbitMQEmitter) ProcessMessage(dp *types.DataPoint) {
 		return
 	}
 
-	// defer connection.Close()
-	// defer channel.Close()
+	// Only accept data points of floating point type
+	if _, ok := dp.Value.(float64); !ok {
+		return
+	}
 
-	// fmt.Println("RABBITMQ emitter processing message")
+	// Use safe marshalling to avoid human mistakes when formatting JSON
+	rmdp := &RabbitMQDataPoint{Signal: dp.Name, Value: dp.Value.(float64), Status: dp.Quality}
+	body, _ := json.Marshal(rmdp)
 
-	body, _ := json.Marshal(dp)
 	err = channel.Publish(
 		"",          // exchange
 		rqueue.Name, // routing key
@@ -77,4 +85,11 @@ func (emitter *RabbitMQEmitter) ProcessMessage(dp *types.DataPoint) {
 		db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to publish message: %v", err.Error()))
 		return
 	}
+}
+
+func (emitter *RabbitMQEmitter) ProcessMeta(dp *types.DataPointMeta) {
+}
+
+func (emitter *RabbitMQEmitter) GetStats() *types.EmitterStatistics {
+	return nil
 }
