@@ -72,8 +72,10 @@ func (emitter *TimescaleEmitter) ProcessMeta(dp *types.DataPointMeta) {
 	if rowExists("select name from measurements.tags where name=$1", dp.Name) == false {
 		if err := database.QueryRow("insert into measurements.tags (name, description) values ($1, $2) returning tag_id", dp.Name, dp.Description).Scan(&id); err != nil {
 			fmt.Println("TIMESCALE failed to insert,", err.Error())
-		} else {
-			fmt.Println("TIMESCALE new META inserted,", id)
+		}
+	} else {
+		if _, err := database.Exec("update measurements.tags set description = $2 where name = $1", dp.Name, dp.Description); err != nil {
+			fmt.Println("TIMESCALE failed to update,", err.Error())
 		}
 	}
 }

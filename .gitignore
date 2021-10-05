@@ -15,3 +15,5 @@
 # vendor/
 /config.json
 /dd-inserter
+/test.db
+/static
