@@ -23,8 +23,8 @@ func Init() {
 	ts := &TimescaleEmitter{}
 	ts.InitEmitter()
 
-	rmq := &RabbitMQEmitter{}
-	rmq.InitEmitter()
+	// rmq := &RabbitMQEmitter{}
+	// rmq.InitEmitter()
 }
 
 func messageDispatch() {

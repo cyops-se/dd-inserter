@@ -31,6 +31,7 @@ const router = new Router({
       route('System Settings', null, 'pages/systemsettings'),
       route('ListenerTableView', null, 'pages/listeners'),
       route('EmitterTableView', null, 'pages/emitters'),
+      route('ImportMetaView', null, 'pages/importmeta'),
 
       // Tables
       route('Logs', null, 'tables/logs'),

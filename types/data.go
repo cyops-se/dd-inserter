@@ -1,16 +1,13 @@
 package types
 
-import (
-	"time"
-)
-
-// Persistent data
-type ProcessPoint struct {
-	ID                  uint      `json:"id"`
-	Name                string    `json:"name" gorm:"primaryKey"`
-	Description         string    `json:"description"`
-	LastValue           float64   `json:"lastvalue"`
-	Updated             time.Time `json:"updated"`
-	Integrator          float64   `json:"integrator"`
-	IntegratingDeadband float64   `json:"integratingdeadband"`
+// Imported meta data
+type Meta struct {
+	TagId       int     `json:"tag_id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Location    string  `json:"location"`
+	Type        string  `json:"type"`
+	Unit        string  `json:"unit"`
+	Min         float64 `json:"min"`
+	Max         float64 `json:"max"`
 }
