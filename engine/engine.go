@@ -39,12 +39,6 @@ func GetDataPoints() ([]types.VolatileDataPoint, error) {
 	return list, nil
 }
 
-func GetProcessPoints() ([]*types.ProcessPoint, error) {
-	var items []*types.ProcessPoint
-	db.DB.Find(&items)
-	return items, nil
-}
-
 func InitDispatchers() {
 	InitDataPointMap()
 	go runDataDispatch()

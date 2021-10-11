@@ -17,6 +17,12 @@ var dropList []int
 var ws []*websocket.Conn
 var wsMutex sync.Mutex
 
+func handlePanic() {
+	if r := recover(); r != nil {
+		return
+	}
+}
+
 func RegisterWebsocket(c *websocket.Conn) {
 	wsMutex.Lock()
 	defer wsMutex.Unlock()
@@ -28,6 +34,8 @@ func RegisterWebsocket(c *websocket.Conn) {
 }
 
 func NotifySubscribers(topic string, message interface{}) {
+	defer handlePanic()
+
 	wsMutex.Lock()
 	defer wsMutex.Unlock()
 

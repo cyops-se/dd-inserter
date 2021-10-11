@@ -11,8 +11,9 @@ const ApiService = {
     Vue.use(VueAxios, axios)
 
     if (process.env.NODE_ENV === 'production') {
-      Vue.axios.defaults.baseURL = 'http://localhost:3001'
+      Vue.axios.defaults.baseURL = 'http://' + location.host + '3001'
     } else {
+      Vue.axios.defaults.baseURL = 'http://' + location.host + '8081'
       Vue.axios.defaults.baseURL = 'http://localhost:8081'
     }
   },
@@ -55,6 +56,24 @@ const ApiService = {
     ApiService.setHeader()
     resource = 'api/' + resource
     return Vue.axios.post(`${resource}`, params)
+  },
+
+  /**
+   * Set the POST HTTP request for upload
+   * @param resource
+   * @param files
+   * @returns {*}
+   */
+  upload (resource, files) {
+    ApiService.setHeader()
+    resource = 'api/' + resource
+    var formData = new FormData()
+    for (var i = 0; i < files.length; i++) { formData.append('file', files[i]) }
+    return Vue.axios.post(`${resource}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data; charset=utf-8',
+      },
+    })
   },
 
   /**

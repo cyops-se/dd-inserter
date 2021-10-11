@@ -92,8 +92,9 @@
     },
 
     data: () => ({
-      email: null,
-      password: null,
+      fullname: '',
+      email: '',
+      password: '',
       emailRules: [
         v => !!v || 'Email is required',
         v => /.+@.+/.test(v) || 'E-mail must be valid',

@@ -137,19 +137,9 @@
           text: 'Dashboard',
         },
         {
-          icon: 'mdi-server',
-          text: 'Listeners',
-          to: '/pages/listeners',
-        },
-        // {
-        //   icon: 'mdi-folder-open',
-        //   text: 'Browser',
-        //   to: '/pages/browser',
-        // },
-        {
-          icon: 'mdi-folder-multiple',
-          text: 'Emitters',
-          to: '/pages/emitters',
+          icon: 'mdi-cloud-upload',
+          text: 'Import meta',
+          to: '/pages/importmeta',
         },
         {
           icon: 'mdi-tag-multiple',
