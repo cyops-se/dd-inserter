@@ -76,39 +76,42 @@ func runDataDispatch() {
 		// Update internal data point table
 		dpLock.Lock()
 		for _, dp := range msg.Points {
-			if entry, ok := datapoints[dp.Name]; ok {
-				entry.DataPoint = &dp
+			entry, ok := datapoints[dp.Name]
+			if !ok {
+				entry = &types.VolatileDataPoint{}
+				datapoints[dp.Name] = entry
+			}
 
-				switch updateType := entry.UpdateType; updateType {
-				case types.UpdateTypePassthru:
-					// log.Println("Emitting passthru", entry.DataPoint.Name)
+			entry.DataPoint = &dp
+
+			switch updateType := entry.UpdateType; updateType {
+			case types.UpdateTypePassthru:
+				// log.Println("Emitting passthru", entry.DataPoint.Name)
+				NewEmitMsg <- dp
+				entry.LastEmitted = time.Now()
+
+			case types.UpdateTypeDeadband:
+				// Check deadband
+				if _, ok := dp.Value.(float64); ok {
+					value := dp.Value.(float64)
+					entry.Integrator += (entry.StoredValue - value)
+					if math.Abs(entry.Integrator/value) > entry.IntegratingDeadband {
+						entry.StoredValue = value
+						entry.Integrator = 0.0
+						entry.LastEmitted = time.Now()
+						NewEmitMsg <- dp
+					}
+				}
+
+			case types.UpdateTypeInterval:
+				if time.Since(entry.LastEmitted) > time.Duration(entry.Interval)*time.Second {
+					// log.Println("Emitting interval", entry.DataPoint.Name)
 					NewEmitMsg <- dp
 					entry.LastEmitted = time.Now()
-					break
-
-				case types.UpdateTypeDeadband:
-					// Check deadband
-					if _, ok := dp.Value.(float64); ok {
-						value := dp.Value.(float64)
-						entry.Integrator += (entry.StoredValue - value)
-						if math.Abs(entry.Integrator/value) > entry.IntegratingDeadband {
-							entry.StoredValue = value
-							entry.Integrator = 0.0
-							entry.LastEmitted = time.Now()
-							NewEmitMsg <- dp
-						}
-					}
-					break
-
-				case types.UpdateTypeInterval:
-					if time.Now().Sub(entry.LastEmitted) > time.Duration(entry.Interval)*time.Second {
-						// log.Println("Emitting interval", entry.DataPoint.Name)
-						NewEmitMsg <- dp
-						entry.LastEmitted = time.Now()
-					}
 				}
 			}
 		}
+
 		dpLock.Unlock()
 	}
 }

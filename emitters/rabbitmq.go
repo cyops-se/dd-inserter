@@ -7,17 +7,19 @@ import (
 
 	"github.com/cyops-se/dd-inserter/db"
 	"github.com/cyops-se/dd-inserter/types"
+	"github.com/sirius1024/go-amqp-reconnect/rabbitmq"
 	"github.com/streadway/amqp"
 )
 
 type RabbitMQEmitter struct {
-	Host      string `json:"host"`
-	Port      int    `json:"port"`
-	User      string `json:"username"`
-	Password  string `json:"password"`
-	Authident bool   `json:"authident"`
-	Database  string `json:"database"`
-	Batchsize int    `json:"batchsize"`
+	// The attributes below are serialized into the 'Settings' attribute of the Emitter attribute above
+	Urls        []string `json:"urls"`
+	ChannelName string   `json:"channel"`
+	connection  *rabbitmq.Connection
+	channel     *rabbitmq.Channel
+	queue       amqp.Queue
+	err         error
+	initialized bool
 }
 
 type RabbitMQDataPoint struct {
@@ -27,38 +29,56 @@ type RabbitMQDataPoint struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-var connection *amqp.Connection
-var channel *amqp.Channel
-var rqueue amqp.Queue
-var err error
-
-func (emitter *RabbitMQEmitter) InitEmitter() {
-	emitters = append(emitters, emitter)
-	connection, err = amqp.Dial("amqp://admin:hemligt@192.168.0.174:5672/")
-	if err != nil {
-		db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to connect RabbitMQ server: %v", err.Error()))
-		return
+func (emitter *RabbitMQEmitter) InitEmitter() error {
+	if len(emitter.Urls) == 0 {
+		emitter.err = fmt.Errorf("Failed to connect RabbitMQ cluster, urls parameter empty")
+		db.Log("error", "RabbitMQ init", emitter.err.Error())
+		return emitter.err
 	}
 
-	channel, err = connection.Channel()
+	emitter.connection, emitter.err = rabbitmq.DialCluster(emitter.Urls)
+	if emitter.err != nil {
+		db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to connect RabbitMQ cluster [%s]: %v", emitter.Urls, emitter.err.Error()))
+		return emitter.err
+	}
 
-	rqueue, err = channel.QueueDeclare(
-		"hello", // name
-		false,   // durable
-		false,   // delete when unused
-		false,   // exclusive
-		false,   // no-wait
-		nil,     // arguments
+	emitter.channel, emitter.err = emitter.connection.Channel()
+
+	emitter.queue, emitter.err = emitter.channel.QueueDeclare(
+		emitter.ChannelName, // name
+		false,               // durable
+		false,               // delete when unused
+		false,               // exclusive
+		false,               // no-wait
+		nil,                 // arguments
 	)
 
-	if err != nil {
-		db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to declare queue: %v", err.Error()))
-		return
+	if emitter.err != nil {
+		db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to declare queue: %v", emitter.err.Error()))
+		return emitter.err
 	}
+
+	emitter.initialized = true
+	return emitter.err
 }
 
+// func (emitter *RabbitMQEmitter) LoadSettingsJSON(settings string) error {
+// 	// settings is a JSON object with all settings (serialized from RabbitMQEmitter)
+// 	return json.Unmarshal([]byte(settings), &emitter)
+// }
+
+// func (emitter *RabbitMQEmitter) GetSettingsJSON() (string, error) {
+// 	settings, err := json.Marshal(emitter)
+// 	if err != nil {
+// 		db.Log("error", "Failed to save RabbitMQ settings", err.Error())
+// 		return "", err
+// 	}
+
+// 	return string(settings), nil
+// }
+
 func (emitter *RabbitMQEmitter) ProcessMessage(dp *types.DataPoint) {
-	if dp == nil {
+	if dp == nil || !emitter.initialized {
 		return
 	}
 
@@ -71,18 +91,18 @@ func (emitter *RabbitMQEmitter) ProcessMessage(dp *types.DataPoint) {
 	rmdp := &RabbitMQDataPoint{Signal: dp.Name, Value: dp.Value.(float64), Status: dp.Quality}
 	body, _ := json.Marshal(rmdp)
 
-	err = channel.Publish(
-		"",          // exchange
-		rqueue.Name, // routing key
-		false,       // mandatory
-		false,       // immediate
+	emitter.err = emitter.channel.Publish(
+		"",                 // exchange
+		emitter.queue.Name, // routing key
+		false,              // mandatory
+		false,              // immediate
 		amqp.Publishing{
 			ContentType: "text/json",
 			Body:        []byte(body),
 		})
 
-	if err != nil {
-		db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to publish message: %v", err.Error()))
+	if emitter.err != nil {
+		db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to publish message: %v", emitter.err.Error()))
 		return
 	}
 }

@@ -1,0 +1,25 @@
+<template>
+  <v-row>
+    <v-col cols="12">
+      <v-text-field
+        v-model="item.instance.channel"
+        label="Channel"
+        outlined
+        hide-details
+      />
+    </v-col>
+    <v-col cols="12">
+      <list-edit :items="item.instance.urls" />
+    </v-col>
+  </v-row>
+</template>
+
+<script>
+  export default {
+    name: 'RabbitMQEmitterEdit',
+
+    props: {
+      item: {},
+    },
+  }
+</script>

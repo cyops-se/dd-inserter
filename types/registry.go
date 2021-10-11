@@ -13,8 +13,12 @@ func RegisterType(name string, datatype interface{}) {
 }
 
 func CreateType(name string) interface{} {
-	t := reflect.New(typeRegistry[name]).Interface()
-	return t
+	if t := typeRegistry[name]; t != nil {
+		i := reflect.New(t).Interface()
+		return i
+	}
+
+	return nil
 }
 
 func CreateSlice(name string) interface{} {

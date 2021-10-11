@@ -19,15 +19,18 @@ var wsMutex sync.Mutex
 
 func RegisterWebsocket(c *websocket.Conn) {
 	wsMutex.Lock()
+	defer wsMutex.Unlock()
+
 	ws = append(ws, c)
 	log.Println("Adding subscriber", len(ws)-1)
-	wsMutex.Unlock()
 	msg := &WebSocketMessage{Topic: "ws.meta", Message: "Subscription registered"}
 	c.WriteJSON(msg)
 }
 
 func NotifySubscribers(topic string, message interface{}) {
 	wsMutex.Lock()
+	defer wsMutex.Unlock()
+
 	dropList = make([]int, 0)
 	for i, c := range ws {
 		if c == nil || c.Conn == nil {
@@ -41,7 +44,6 @@ func NotifySubscribers(topic string, message interface{}) {
 		}
 	}
 	dropSubscribers()
-	wsMutex.Unlock()
 }
 
 func dropSubscriber(i int) {

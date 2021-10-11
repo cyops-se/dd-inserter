@@ -11,13 +11,15 @@ import (
 )
 
 type TimescaleEmitter struct {
-	Host      string `json:"host"`
-	Port      int    `json:"port"`
-	User      string `json:"username"`
-	Password  string `json:"password"`
-	Authident bool   `json:"authident"`
-	Database  string `json:"database"`
-	Batchsize int    `json:"batchsize"`
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	User        string `json:"user"`
+	Password    string `json:"password"`
+	Authident   bool   `json:"authident"`
+	Database    string `json:"database"`
+	Batchsize   int    `json:"batchsize"`
+	err         error
+	initialized bool
 }
 
 type generalParameters struct {
@@ -37,12 +39,34 @@ var debug *bool
 var batchSize *int
 var database *sql.DB
 
-func (emitter *TimescaleEmitter) InitEmitter() {
-	emitters = append(emitters, emitter)
-	emitter.connectdb()
+func (emitter *TimescaleEmitter) InitEmitter() error {
+	if err := emitter.connectdb(); err == nil {
+		emitter.initialized = true
+	}
+
+	return emitter.err
 }
 
+// func (emitter *TimescaleEmitter) LoadSettingsJSON(settings string) error {
+// 	// settings is a JSON object with all settings (serialized from TimescaleEmitter)
+// 	return json.Unmarshal([]byte(settings), emitter)
+// }
+
+// func (emitter *TimescaleEmitter) GetSettingsJSON() (string, error) {
+// 	settings, err := json.Marshal(emitter)
+// 	if err != nil {
+// 		db.Log("error", "Failed to save RabbitMQ settings", err.Error())
+// 		return "", err
+// 	}
+
+// 	return string(settings), nil
+// }
+
 func (emitter *TimescaleEmitter) ProcessMessage(dp *types.DataPoint) {
+	if emitter.initialized == false {
+		return
+	}
+
 	var err error
 	if _, ok := dp.Value.(float64); !ok {
 		return
@@ -84,15 +108,7 @@ func (emitter *TimescaleEmitter) GetStats() *types.EmitterStatistics {
 	return nil
 }
 
-func (emitter *TimescaleEmitter) connectdb() {
-	emitter.Host = "timescaledb"
-	emitter.Port = 5432
-	emitter.User = "dev"
-	emitter.Password = "hemligt"
-	emitter.Authident = false
-	emitter.Database = "postgres"
-	emitter.Batchsize = 1000
-
+func (emitter *TimescaleEmitter) connectdb() error {
 	psqlInfo := fmt.Sprintf("dbname=%s sslmode=disable", emitter.Database)
 	if !emitter.Authident {
 		psqlInfo = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
@@ -100,23 +116,24 @@ func (emitter *TimescaleEmitter) connectdb() {
 
 	}
 
-	database, err = sql.Open("postgres", psqlInfo)
-	if err != nil {
-		fmt.Println("Failed to connect to the database, err:", err)
-		return
+	database, emitter.err = sql.Open("postgres", psqlInfo)
+	if emitter.err != nil {
+		fmt.Println("Failed to connect to the database, err:", emitter.err)
+		return emitter.err
 	}
 
-	err = database.Ping()
-	if err != nil {
-		fmt.Println("Database PING failed, err:", err)
-		return
+	emitter.err = database.Ping()
+	if emitter.err != nil {
+		fmt.Println("Database PING failed, err:", emitter.err)
+		return emitter.err
 	}
 
-	if _, err := database.Exec("insert into measurements.raw_measurements(time, tag, value, quality) values ('2021-09-10 13:00:00', 1, 45.6, 12)"); err != nil {
-		fmt.Println("TIMESCALE failed to insert,", err.Error())
+	if _, emitter.err = database.Exec("insert into measurements.raw_measurements(time, tag, value, quality) values ('2021-09-10 13:00:00', 1, 45.6, 12)"); emitter.err != nil {
+		fmt.Println("TIMESCALE failed to insert,", emitter.err.Error())
 	}
 
 	fmt.Println("TIMESCALE connected")
+	return emitter.err
 }
 
 func rowExists(query string, args ...interface{}) bool {

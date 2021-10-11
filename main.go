@@ -35,8 +35,14 @@ func main() {
 	db.ConnectDatabase()
 	db.InitContent()
 
+	listeners.RegisterType(&listeners.UDPDataListener{})
+	listeners.RegisterType(&listeners.UDPMetaListener{})
 	listeners.Init()
-	emitters.Init()
+
+	emitters.RegisterType("TimescaleDB", emitters.TimescaleEmitter{})
+	emitters.RegisterType("RabbitMQ", emitters.RabbitMQEmitter{})
+	emitters.LoadEmitters()
+
 	engine.InitDispatchers()
 
 	go RunWeb()

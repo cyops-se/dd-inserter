@@ -1,15 +1,21 @@
 package listeners
 
 import (
+	"log"
+	"reflect"
+
 	"github.com/cyops-se/dd-inserter/db"
 	"github.com/cyops-se/dd-inserter/types"
 )
 
-type IListener interface {
-	InitListener()
-}
+var typeRegistry = make(map[string]reflect.Type)
+var listeners []types.IListener
 
-var listeners []IListener
+func RegisterType(i types.IListener) {
+	typename := reflect.TypeOf(i).String()
+	log.Println("Registering emitter type:", typename, i)
+	typeRegistry[typename] = reflect.TypeOf(i)
+}
 
 func RunDispatch() {
 }

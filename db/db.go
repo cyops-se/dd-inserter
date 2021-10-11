@@ -28,7 +28,7 @@ func ConnectDatabase() {
 	// Generic CRUD data types
 	configureTypes(database, types.Log{}, types.KeyValuePair{})
 	configureTypes(database, types.User{}, types.Settings{})
-	configureTypes(database, types.DataPointMeta{}, &types.Listener{}, &types.Emitter{})
+	configureTypes(database, types.DataPointMeta{}, types.Listener{}, types.Emitter{})
 
 	DB = database
 }

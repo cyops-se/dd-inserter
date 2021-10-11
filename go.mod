@@ -8,6 +8,7 @@ require (
 	github.com/gofiber/jwt/v2 v2.2.2
 	github.com/gofiber/websocket/v2 v2.0.10
 	github.com/lib/pq v1.8.0
+	github.com/sirius1024/go-amqp-reconnect v1.0.0
 	github.com/streadway/amqp v1.0.0
 	golang.org/x/sys v0.0.0-20210514084401-e8d321eab015
 	gorm.io/driver/sqlite v1.1.5

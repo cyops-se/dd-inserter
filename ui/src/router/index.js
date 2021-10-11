@@ -30,7 +30,8 @@ const router = new Router({
       route('Tag Table', null, 'pages/tags'),
       route('System Settings', null, 'pages/systemsettings'),
       route('ListenerTableView', null, 'pages/listeners'),
-      route('EmitterTableView', null, 'pages/emitters'),
+      route('EmitterTable', null, 'pages/emitters'),
+      route('TestView', null, 'test'),
 
       // Tables
       route('Logs', null, 'tables/logs'),
