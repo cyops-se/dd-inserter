@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cyops-se/dd-inserter/engine"
 	"github.com/cyops-se/dd-inserter/types"
 	"github.com/lib/pq"
 )
@@ -176,6 +177,7 @@ func processMessages(db *sql.DB) {
 			if full := b.appendBatch(msg.Points); full {
 				b.insertBatch(db)
 				b = initBatch()
+				engine.NotifySubscribers("emitter.timescale", counter)
 			}
 		}
 	}

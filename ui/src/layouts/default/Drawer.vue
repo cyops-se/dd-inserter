@@ -137,9 +137,19 @@
           text: 'Dashboard',
         },
         {
-          icon: 'mdi-cloud-upload',
-          text: 'Import meta',
+          icon: 'mdi-tag-multiple',
+          text: 'Tags meta',
           to: '/pages/importmeta',
+        },
+        {
+          icon: 'mdi-ear-hearing',
+          text: 'Listeners',
+          to: '/pages/listeners',
+        },
+        {
+          icon: 'mdi-antenna',
+          text: 'Emitters',
+          to: '/pages/emitters',
         },
         {
           icon: 'mdi-tag-multiple',

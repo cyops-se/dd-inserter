@@ -10,7 +10,7 @@
     </v-col>
     <v-col cols="6">
       <v-text-field
-        v-model="item.instance.port"
+        v-model.number="item.instance.port"
         label="Port"
         outlined
         hide-details

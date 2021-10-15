@@ -70,13 +70,12 @@
                         v-if="editedItem.ut.value == 1"
                         v-model.number="editedItem.interval"
                         label="Interval"
-                        type="number"
                         hide-details
                         outlined
                       />
                       <v-text-field
                         v-if="editedItem.ut.value == 2"
-                        v-model="editedItem.integratingdeadband"
+                        v-model.number="editedItem.integratingdeadband"
                         label="Integrating Deadband"
                         hide-details
                         outlined

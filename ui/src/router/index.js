@@ -30,13 +30,9 @@ const router = new Router({
       route('Tag Table', null, 'pages/tags'),
       route('System Settings', null, 'pages/systemsettings'),
       route('ListenerTableView', null, 'pages/listeners'),
-<<<<<<< HEAD
       route('EmitterTable', null, 'pages/emitters'),
-      route('TestView', null, 'test'),
-=======
-      route('EmitterTableView', null, 'pages/emitters'),
       route('ImportMetaView', null, 'pages/importmeta'),
->>>>>>> f246462fc1c84722fc5c6c3609e8bdfabd63e636
+      route('TestView', null, 'test'),
 
       // Tables
       route('Logs', null, 'tables/logs'),
