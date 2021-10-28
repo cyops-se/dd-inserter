@@ -86,15 +86,15 @@ func GetTypeNames() []string {
 
 func messageDispatch() {
 	for {
-		msg := <-engine.NewEmitMsg
+		dp := <-engine.NewEmitMsg
 		for _, emitter := range Emitters {
 			if emitter.Instance != nil {
-				emitter.Instance.ProcessMessage(&msg)
+				emitter.Instance.ProcessMessage(&dp)
 			}
 		}
 
 		// Always emit to websocket subscribers
-		engine.NotifySubscribers("data.message", msg)
+		engine.NotifySubscribers("data.point", dp)
 	}
 }
 

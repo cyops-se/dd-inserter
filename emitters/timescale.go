@@ -70,7 +70,9 @@ func (emitter *TimescaleEmitter) ProcessMessage(dp *types.DataPoint) {
 	}
 
 	var err error
-	if _, ok := dp.Value.(float64); !ok {
+	_, isfloat64 := dp.Value.(float64)
+	_, isint := dp.Value.(int)
+	if !isfloat64 && !isint {
 		return
 	}
 
@@ -202,7 +204,7 @@ func (b *batch) appendPoint(v *types.DataPoint) bool {
 	switch v.Value.(type) {
 	case time.Time: // Skip
 	case string: // Skip
-	case bool: // Skip
+	case bool:
 		if v.Value != nil {
 			if b.count > 0 {
 				fmt.Fprintf(&b.builder, ",")

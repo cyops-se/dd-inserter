@@ -8,13 +8,13 @@
       <v-col cols="12">
         <v-row>
           <v-col
-            v-for="(group, i) in groups"
-            :key="`group-${i}`"
+            v-for="(emitter, i) in emitters"
+            :key="`emitter-${i}`"
             cols="12"
             md="6"
             lg="4"
           >
-            <material-emitter-card :emitter="group" />
+            <material-emitter-card :emitter="emitter" />
           </v-col>
         </v-row>
       </v-col>
@@ -72,13 +72,13 @@
       //     actionText: 'Updated',
       //     color: 'primary',
       //     icon: 'mdi-folder',
-      //     title: 'Groups',
+      //     title: 'emitters',
       //     value: '',
       //   },
       // ],
       tabs: 0,
       tags: [],
-      groups: [],
+      emitters: [],
       servers: [],
     }),
 
@@ -103,9 +103,9 @@
       //   })
       ApiService.get('data/emitters')
         .then(response => {
-          this.groups = response.data
-          console.log('this.emitters: ' + JSON.stringify(this.groups))
-          // this.stats[1].value = this.groups.length.toString()
+          this.emitters = response.data
+          console.log('this.emitters: ' + JSON.stringify(this.emitters))
+          // this.stats[1].value = this.emitters.length.toString()
           // this.stats[1].actionText = 'Updated: ' + new Date().toISOString().replace('T', ' ').replace('Z', '').substring(0, 19)
           // this.charts = []
         }).catch(response => {

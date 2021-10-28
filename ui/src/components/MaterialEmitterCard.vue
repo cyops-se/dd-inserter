@@ -5,7 +5,7 @@
   >
     <v-card-title class="align-start">
       <v-sheet
-        :color="emitter.status === 1 ? 'success' : 'error'"
+        color="info"
         width="100%"
         class="overflow-hidden mt-n9 transition-swing v-card--material__sheet"
         elevation="6"
@@ -26,17 +26,11 @@
                 <span class="text-h3 text-no-wrap">
                   {{ emitter.name }}
                 </span>
-                <span class="text-h4 text-no-wrap">
-                  {{ copy.status == 1 ? 'RUNNING' : 'STOPPED' }}
-                </span>
                 <div>Count: {{ emitter.count }}</div>
               </div>
             </v-col>
             <v-col cols="2">
               <div class="text-right">
-                <v-btn @click="startStop">
-                  <div v-html="emitter.status == 1 ? 'STOP' : 'START'" />
-                </v-btn>
               </div>
             </v-col>
           </v-row>
@@ -76,6 +70,7 @@
 
 <script>
   import ApiService from '@/services/api.service'
+  import WebsocketService from '@/services/websocket.service'
   export default {
     name: 'MaterialEmitterCard',
 
@@ -104,6 +99,14 @@
     },
 
     created () {
+      var t = this
+      WebsocketService.topic('data.point', function (topic, message) {
+        // t.emitter.count = JSON.stringify(message)
+        if (message.n === 'Total Received') {
+          t.emitter.count = message.v
+          t.emitter.lastrun = message.t
+        }
+      })
     },
 
     methods: {

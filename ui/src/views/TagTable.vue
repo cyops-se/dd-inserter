@@ -178,7 +178,7 @@
         })
 
       var t = this
-      WebsocketService.topic('data.message', function (topic, message) {
+      WebsocketService.topic('data.point', function (topic, message) {
         t.message = JSON.stringify(message)
       })
       WebsocketService.topic('meta.message', function (topic, message) {
