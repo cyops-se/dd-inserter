@@ -141,11 +141,11 @@
           text: 'Tags meta',
           to: '/pages/importmeta',
         },
-        {
-          icon: 'mdi-ear-hearing',
-          text: 'Listeners',
-          to: '/pages/listeners',
-        },
+        // {
+        //   icon: 'mdi-ear-hearing',
+        //   text: 'Listeners',
+        //   to: '/pages/listeners',
+        // },
         {
           icon: 'mdi-antenna',
           text: 'Emitters',

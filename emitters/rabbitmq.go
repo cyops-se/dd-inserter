@@ -15,6 +15,7 @@ type RabbitMQEmitter struct {
 	// The attributes below are serialized into the 'Settings' attribute of the Emitter attribute above
 	Urls        []string `json:"urls"`
 	ChannelName string   `json:"channel"`
+	Durable     bool     `json:"durable"`
 	connection  *rabbitmq.Connection
 	channel     *rabbitmq.Channel
 	queue       amqp.Queue
@@ -46,7 +47,7 @@ func (emitter *RabbitMQEmitter) InitEmitter() error {
 
 	emitter.queue, emitter.err = emitter.channel.QueueDeclare(
 		emitter.ChannelName, // name
-		false,               // durable
+		emitter.Durable,     // durable
 		false,               // delete when unused
 		false,               // exclusive
 		false,               // no-wait
@@ -88,7 +89,7 @@ func (emitter *RabbitMQEmitter) ProcessMessage(dp *types.DataPoint) {
 	}
 
 	// Use safe marshalling to avoid human mistakes when formatting JSON
-	rmdp := &RabbitMQDataPoint{Signal: dp.Name, Value: dp.Value.(float64), Status: dp.Quality}
+	rmdp := &RabbitMQDataPoint{Signal: dp.Name, Value: dp.Value.(float64), Status: dp.Quality, Timestamp: dp.Time}
 	body, _ := json.Marshal(rmdp)
 
 	emitter.err = emitter.channel.Publish(

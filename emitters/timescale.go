@@ -132,9 +132,9 @@ func (emitter *TimescaleEmitter) connectdb() error {
 		return emitter.err
 	}
 
-	if _, emitter.err = TimescaleDB.Exec("insert into measurements.raw_measurements(time, tag, value, quality) values ('2021-09-10 13:00:00', 1, 45.6, 12)"); emitter.err != nil {
-		fmt.Println("TIMESCALE failed to insert,", emitter.err.Error())
-	}
+	// if _, emitter.err = TimescaleDB.Exec("insert into measurements.raw_measurements(time, tag, value, quality) values ('2021-09-10 13:00:00', 1, 45.6, 12)"); emitter.err != nil {
+	// 	fmt.Println("TIMESCALE failed to insert,", emitter.err.Error())
+	// }
 
 	fmt.Println("TIMESCALE connected")
 	return emitter.err

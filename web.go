@@ -75,6 +75,7 @@ func RunWeb() {
 	routes.RegisterProxyRoutes(api)
 	routes.RegisterEmitterRoutes(api)
 	routes.RegisterImportRoutes(api)
+	routes.RegisterSystemRoutes(api)
 
 	app.Listen(":3001")
 

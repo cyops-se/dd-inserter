@@ -14,7 +14,7 @@
             md="6"
             lg="4"
           >
-            <material-group-card :group="group" />
+            <material-emitter-card :emitter="group" />
           </v-col>
         </v-row>
       </v-col>
@@ -57,24 +57,25 @@
     },
 
     data: () => ({
-      stats: [
-        {
-          actionIcon: 'mdi-calendar-range',
-          actionText: 'Updated ',
-          color: '#FD9A13',
-          icon: 'mdi-tag',
-          title: 'Tags',
-          value: '',
-        },
-        {
-          actionIcon: 'calendar-range',
-          actionText: 'Updated',
-          color: 'primary',
-          icon: 'mdi-folder',
-          title: 'Groups',
-          value: '',
-        },
-      ],
+      stats: [],
+      // stats: [
+      //   {
+      //     actionIcon: 'mdi-calendar-range',
+      //     actionText: 'Updated ',
+      //     color: '#FD9A13',
+      //     icon: 'mdi-tag',
+      //     title: 'Tags',
+      //     value: '',
+      //   },
+      //   {
+      //     actionIcon: 'calendar-range',
+      //     actionText: 'Updated',
+      //     color: 'primary',
+      //     icon: 'mdi-folder',
+      //     title: 'Groups',
+      //     value: '',
+      //   },
+      // ],
       tabs: 0,
       tags: [],
       groups: [],
@@ -92,19 +93,20 @@
 
     created () {
       this.loading = true
-      ApiService.get('data/opc_tags')
-        .then(response => {
-          this.tags = response.data
-          this.stats[0].value = this.tags.length.toString()
-          this.stats[0].actionText = 'Updated: ' + new Date().toISOString().replace('T', ' ').replace('Z', '').substring(0, 19)
-        }).catch(response => {
-          console.log('ERROR response: ' + JSON.stringify(response))
-        })
-      ApiService.get('data/opc_groups')
+      // ApiService.get('data/emitters')
+      //   .then(response => {
+      //     this.tags = response.data
+      //     this.stats[0].value = this.tags.length.toString()
+      //     this.stats[0].actionText = 'Updated: ' + new Date().toISOString().replace('T', ' ').replace('Z', '').substring(0, 19)
+      //   }).catch(response => {
+      //     console.log('ERROR response: ' + JSON.stringify(response))
+      //   })
+      ApiService.get('data/emitters')
         .then(response => {
           this.groups = response.data
-          this.stats[1].value = this.groups.length.toString()
-          this.stats[1].actionText = 'Updated: ' + new Date().toISOString().replace('T', ' ').replace('Z', '').substring(0, 19)
+          console.log('this.emitters: ' + JSON.stringify(this.groups))
+          // this.stats[1].value = this.groups.length.toString()
+          // this.stats[1].actionText = 'Updated: ' + new Date().toISOString().replace('T', ' ').replace('Z', '').substring(0, 19)
           // this.charts = []
         }).catch(response => {
           console.log('ERROR response: ' + JSON.stringify(response))
