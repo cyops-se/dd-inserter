@@ -89,13 +89,15 @@ func runDataDispatch() {
 	for {
 		msg := <-NewMsg
 		// Update totalRecevied
+		totalReceived.DataPoint.Value = totalReceived.DataPoint.Value.(int) + msg.Count
+		if time.Now().UTC().Sub(totalReceived.DataPoint.Time) > time.Second {
+			totalReceived.DataPoint.Time = time.Now().UTC()
+			NewEmitMsg <- *totalReceived.DataPoint
+		}
 
 		// Update internal data point table
 		dpLock.Lock()
 		for _, dp := range msg.Points {
-			totalReceived.DataPoint.Value = totalReceived.DataPoint.Value.(int) + 1
-			totalReceived.DataPoint.Time = time.Now().UTC()
-			NewEmitMsg <- *totalReceived.DataPoint
 
 			entry, ok := datapoints[dp.Name]
 			if !ok {
