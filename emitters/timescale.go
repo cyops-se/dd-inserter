@@ -72,7 +72,8 @@ func (emitter *TimescaleEmitter) ProcessMessage(dp *types.DataPoint) {
 	var err error
 	_, isfloat64 := dp.Value.(float64)
 	_, isint := dp.Value.(int)
-	if !isfloat64 && !isint {
+	_, isuint64 := dp.Value.(uint64)
+	if !isfloat64 && !isint && !isuint64 {
 		return
 	}
 
