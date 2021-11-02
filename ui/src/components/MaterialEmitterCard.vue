@@ -26,11 +26,12 @@
                 <span class="text-h3 text-no-wrap">
                   {{ emitter.name }}
                 </span>
-                <div>Count: {{ emitter.count }}</div>
               </div>
             </v-col>
-            <v-col cols="2">
+            <v-col cols="3">
               <div class="text-right">
+                <div>Count: {{ emitter.count }}</div>
+                <div>Sequence: {{ emitter.seqno }}</div>
               </div>
             </v-col>
           </v-row>
@@ -104,6 +105,10 @@
         // t.emitter.count = JSON.stringify(message)
         if (message.n === 'Total Received') {
           t.emitter.count = message.v
+          t.emitter.lastrun = message.t
+        }
+        if (message.n === 'Sequence Number') {
+          t.emitter.seqno = message.v
           t.emitter.lastrun = message.t
         }
       })

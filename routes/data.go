@@ -17,6 +17,7 @@ func RegisterDataRoutes(api fiber.Router) {
 	api.Get("/data/:type/field/:field/:value", GetDataByField)
 	api.Post("/data/:type", NewData)
 	api.Put("/data/:type", UpdateData)
+	api.Delete("/data/:type/", DeleteDataAll)
 	api.Delete("/data/:type/:id", DeleteDataByID)
 	api.Delete("/data/:type/field/:field/:value", DeleteDataByField)
 }
@@ -97,6 +98,25 @@ func UpdateData(c *fiber.Ctx) error {
 
 	c.Status(200)
 	return c.JSON(item)
+}
+
+func DeleteDataAll(c *fiber.Ctx) error {
+	table := c.Params("type")
+	item := types.CreateType(table)
+	if item == nil {
+		err := fmt.Errorf("type not found in data type registry: %s", table)
+		db.Log("error", "Failed to create item", err.Error())
+		return c.Status(503).SendString(err.Error())
+	}
+
+	if err := db.DB.Delete(item, "1=1").Error; err != nil {
+		db.Log("error", "Failed to delete item", err.Error())
+		return c.Status(503).SendString(err.Error())
+	}
+
+	db.Log("trace", "All items deleted", fmt.Sprintf("Type: %s", table))
+
+	return c.Status(http.StatusOK).JSON(item)
 }
 
 func DeleteDataByID(c *fiber.Ctx) error {

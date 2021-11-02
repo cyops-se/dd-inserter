@@ -2,6 +2,7 @@ package engine
 
 import (
 	"container/list"
+	"fmt"
 	"log"
 	"math"
 	"sync"
@@ -24,6 +25,7 @@ var NewEmitMetaMsg chan types.DataPointMeta = make(chan types.DataPointMeta)
 // var totalUpdated types.DataPoint
 var totalReceived types.VolatileDataPoint
 var totalUpdated types.VolatileDataPoint
+var sequenceNumber types.VolatileDataPoint
 
 func GetGroups() ([]*interface{}, error) {
 	return nil, nil
@@ -45,21 +47,14 @@ func GetDataPoints() ([]types.VolatileDataPoint, error) {
 }
 
 func InitDispatchers() {
-	// totalReceived.Name = "Total Received"
-	// totalReceived.Value = 0
-	// vdp1 := &types.VolatileDataPoint{DataPoint: &totalReceived}
-	// datapoints[totalReceived.Name] = vdp1
-
-	// totalUpdated.Name = "Total Updated"
-	// totalUpdated.Value = 0
-	// vdp2 := &types.VolatileDataPoint{DataPoint: &totalUpdated}
-	// datapoints[totalReceived.Name] = vdp2
-
-	totalReceived.DataPoint = &types.DataPoint{Name: "Total Received", Value: 0}
+	totalReceived.DataPoint = &types.DataPoint{Name: "Total Received", Value: uint64(0)}
 	datapoints[totalReceived.DataPoint.Name] = &totalReceived
 
-	totalUpdated.DataPoint = &types.DataPoint{Name: "Total Updated", Value: 0}
+	totalUpdated.DataPoint = &types.DataPoint{Name: "Total Updated", Value: uint64(0)}
 	datapoints[totalUpdated.DataPoint.Name] = &totalUpdated
+
+	sequenceNumber.DataPoint = &types.DataPoint{Name: "Sequence Number", Value: uint64(0)}
+	datapoints[sequenceNumber.DataPoint.Name] = &sequenceNumber
 
 	InitDataPointMap()
 	go runDataDispatch()
@@ -88,12 +83,24 @@ func InitDataPointMap() {
 func runDataDispatch() {
 	for {
 		msg := <-NewMsg
+
 		// Update totalRecevied
-		totalReceived.DataPoint.Value = totalReceived.DataPoint.Value.(int) + msg.Count
+		totalReceived.DataPoint.Value = totalReceived.DataPoint.Value.(uint64) + uint64(msg.Count)
 		if time.Now().UTC().Sub(totalReceived.DataPoint.Time) > time.Second {
 			totalReceived.DataPoint.Time = time.Now().UTC()
 			NewEmitMsg <- *totalReceived.DataPoint
 		}
+
+		diff := msg.Counter - sequenceNumber.DataPoint.Value.(uint64)
+		if diff > 1 {
+			db.Log("error", "Sequence number out of sync", fmt.Sprintf("Received %d, had %d, difference: %d",
+				msg.Counter, sequenceNumber.DataPoint.Value.(uint64), diff))
+		}
+
+		// Update sequenceNumber
+		sequenceNumber.DataPoint.Value = msg.Counter
+		sequenceNumber.DataPoint.Time = time.Now().UTC()
+		NewEmitMsg <- *sequenceNumber.DataPoint
 
 		// Update internal data point table
 		dpLock.Lock()
@@ -112,7 +119,7 @@ func runDataDispatch() {
 				// log.Println("Emitting passthru", entry.DataPoint.Name)
 				entry.LastEmitted = time.Now().UTC()
 				NewEmitMsg <- dp
-				totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(int) + 1
+				totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
 				totalUpdated.DataPoint.Time = entry.LastEmitted
 				totalUpdated.LastEmitted = entry.LastEmitted
 				NewEmitMsg <- *totalUpdated.DataPoint
@@ -127,7 +134,7 @@ func runDataDispatch() {
 						entry.Integrator = 0.0
 						entry.LastEmitted = time.Now().UTC()
 						NewEmitMsg <- dp
-						totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(int) + 1
+						totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
 						totalUpdated.DataPoint.Time = entry.LastEmitted
 						totalUpdated.LastEmitted = entry.LastEmitted
 						NewEmitMsg <- *totalUpdated.DataPoint
@@ -139,7 +146,7 @@ func runDataDispatch() {
 					// log.Println("Emitting interval", entry.DataPoint.Name)
 					entry.LastEmitted = time.Now().UTC()
 					NewEmitMsg <- dp
-					totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(int) + 1
+					totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
 					totalUpdated.DataPoint.Time = entry.LastEmitted
 					totalUpdated.LastEmitted = entry.LastEmitted
 					NewEmitMsg <- *totalUpdated.DataPoint

@@ -15,6 +15,14 @@
           single-line
           hide-details
         />
+        <v-btn
+          color="primary"
+          dark
+          class="ml-2"
+          @click="clearAll"
+        >
+          Clear all
+        </v-btn>
       </v-card-title>
       <v-data-table
         :headers="headers"
@@ -54,16 +62,32 @@
     }),
 
     created () {
-      ApiService.get('data/logs')
-        .then(response => {
-          for (const i of response.data) {
-            i.time = i.time.replace('T', ' ').replace('Z', '').substring(0, 19)
-          }
-          this.items = response.data
-          this.loading = false
-        }).catch(response => {
-          console.log('ERROR response: ' + JSON.stringify(response))
-        })
+      this.refreshLogs()
+    },
+
+    methods: {
+      clearAll () {
+        ApiService.delete('data/logs')
+          .then(response => {
+            this.refreshLogs()
+            this.loading = false
+          }).catch(response => {
+            console.log('ERROR response: ' + response.msg)
+          })
+      },
+
+      refreshLogs () {
+        ApiService.get('data/logs')
+          .then(response => {
+            for (const i of response.data) {
+              i.time = i.time.replace('T', ' ').replace('Z', '').substring(0, 19)
+            }
+            this.items = response.data
+            this.loading = false
+          }).catch(response => {
+            console.log('ERROR response: ' + JSON.stringify(response))
+          })
+      },
     },
   }
 </script>
