@@ -30,7 +30,7 @@ func handlePanic() {
 }
 
 func reportError(f string, args ...interface{}) {
-	msg := fmt.Sprintf(f, args)
+	msg := fmt.Sprintf(f, args...)
 	log.Println(msg)
 	if elog != nil {
 		elog.Error(1, msg)
@@ -38,7 +38,7 @@ func reportError(f string, args ...interface{}) {
 }
 
 func reportInfo(f string, args ...interface{}) {
-	msg := fmt.Sprintf(f, args)
+	msg := fmt.Sprintf(f, args...)
 	log.Println(msg)
 	if elog != nil {
 		elog.Info(1, msg)

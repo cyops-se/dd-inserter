@@ -13,14 +13,15 @@ import (
 
 type RabbitMQEmitter struct {
 	// The attributes below are serialized into the 'Settings' attribute of the Emitter attribute above
-	Urls        []string `json:"urls"`
-	ChannelName string   `json:"channel"`
-	Durable     bool     `json:"durable"`
-	connection  *rabbitmq.Connection
-	channel     *rabbitmq.Channel
-	queue       amqp.Queue
-	err         error
-	initialized bool
+	Urls        []string              `json:"urls"`
+	ChannelName string                `json:"channel"`
+	Durable     bool                  `json:"durable"`
+	connection  *rabbitmq.Connection  `json:"-"`
+	channel     *rabbitmq.Channel     `json:"-"`
+	queue       amqp.Queue            `json:"-"`
+	err         error                 `json:"-"`
+	initialized bool                  `json:"-"`
+	messages    chan *types.DataPoint `json:"-"`
 }
 
 type RabbitMQDataPoint struct {
@@ -59,6 +60,9 @@ func (emitter *RabbitMQEmitter) InitEmitter() error {
 		return emitter.err
 	}
 
+	emitter.messages = make(chan *types.DataPoint, 2000)
+	go emitter.processMessages()
+
 	emitter.initialized = true
 	return emitter.err
 }
@@ -83,28 +87,36 @@ func (emitter *RabbitMQEmitter) ProcessMessage(dp *types.DataPoint) {
 		return
 	}
 
-	// Only accept data points of floating point type
-	if _, ok := dp.Value.(float64); !ok {
-		return
-	}
+	emitter.messages <- dp
+}
 
-	// Use safe marshalling to avoid human mistakes when formatting JSON
-	rmdp := &RabbitMQDataPoint{Signal: dp.Name, Value: dp.Value.(float64), Status: dp.Quality, Timestamp: dp.Time}
-	body, _ := json.Marshal(rmdp)
+func (emitter *RabbitMQEmitter) processMessages() {
+	for {
+		dp := <-emitter.messages
 
-	emitter.err = emitter.channel.Publish(
-		"",                 // exchange
-		emitter.queue.Name, // routing key
-		false,              // mandatory
-		false,              // immediate
-		amqp.Publishing{
-			ContentType: "text/json",
-			Body:        []byte(body),
-		})
+		// Only accept data points of floating point type
+		if _, ok := dp.Value.(float64); !ok {
+			return
+		}
 
-	if emitter.err != nil {
-		db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to publish message: %v", emitter.err.Error()))
-		return
+		// Use safe marshalling to avoid human mistakes when formatting JSON
+		rmdp := &RabbitMQDataPoint{Signal: dp.Name, Value: dp.Value.(float64), Status: dp.Quality, Timestamp: dp.Time}
+		body, _ := json.Marshal(rmdp)
+
+		emitter.err = emitter.channel.Publish(
+			"",                 // exchange
+			emitter.queue.Name, // routing key
+			false,              // mandatory
+			false,              // immediate
+			amqp.Publishing{
+				ContentType: "text/json",
+				Body:        []byte(body),
+			})
+
+		if emitter.err != nil {
+			db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to publish message: %v", emitter.err.Error()))
+			return
+		}
 	}
 }
 

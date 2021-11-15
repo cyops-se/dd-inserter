@@ -16,10 +16,10 @@ var queueLock sync.Mutex
 var dpLock sync.Mutex
 var queue list.List
 var datapoints map[string]*types.VolatileDataPoint = make(map[string]*types.VolatileDataPoint)
-var NewMsg chan types.DataMessage = make(chan types.DataMessage)
+var NewMsg chan types.DataMessage = make(chan types.DataMessage, 2000)
 var NewMeta chan []*types.DataPointMeta = make(chan []*types.DataPointMeta)
-var NewEmitMsg chan types.DataPoint = make(chan types.DataPoint)
-var NewEmitMetaMsg chan types.DataPointMeta = make(chan types.DataPointMeta)
+var NewEmitMsg chan types.DataPoint = make(chan types.DataPoint, 2000)
+var NewEmitMetaMsg chan types.DataPointMeta = make(chan types.DataPointMeta, 2000)
 
 // var totalReceived types.DataPoint
 // var totalUpdated types.DataPoint
@@ -88,6 +88,7 @@ func runDataDispatch() {
 		totalReceived.DataPoint.Value = totalReceived.DataPoint.Value.(uint64) + uint64(msg.Count)
 		if time.Now().UTC().Sub(totalReceived.DataPoint.Time) > time.Second {
 			totalReceived.DataPoint.Time = time.Now().UTC()
+			totalReceived.LastEmitted = totalReceived.DataPoint.Time
 			NewEmitMsg <- *totalReceived.DataPoint
 		}
 
@@ -100,11 +101,13 @@ func runDataDispatch() {
 		// Update sequenceNumber
 		sequenceNumber.DataPoint.Value = msg.Counter
 		sequenceNumber.DataPoint.Time = time.Now().UTC()
+		sequenceNumber.LastEmitted = sequenceNumber.DataPoint.Time
 		NewEmitMsg <- *sequenceNumber.DataPoint
 
 		// Update internal data point table
 		dpLock.Lock()
 		for _, dp := range msg.Points {
+			// log.Printf("Processing %s, name: %s", dp.Time, dp.Name)
 
 			entry, ok := datapoints[dp.Name]
 			if !ok {

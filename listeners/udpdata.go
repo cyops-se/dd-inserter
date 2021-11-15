@@ -2,7 +2,6 @@ package listeners
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net"
 
@@ -23,7 +22,7 @@ func (listener *UDPDataListener) InitListener() {
 
 func (listener *UDPDataListener) run() {
 	port := 4357
-	p := make([]byte, 2048)
+	p := make([]byte, 2048*1024*8)
 	addr := net.UDPAddr{
 		Port: port,
 		IP:   net.ParseIP("0.0.0.0"),
@@ -31,7 +30,7 @@ func (listener *UDPDataListener) run() {
 
 	ser, err := net.ListenUDP("udp", &addr)
 	if err != nil {
-		fmt.Printf("Failed to listen %v\n", err)
+		log.Printf("Failed to listen %v\n", err)
 		return
 	}
 
@@ -39,14 +38,14 @@ func (listener *UDPDataListener) run() {
 	for {
 		n, _, err := ser.ReadFromUDP(p)
 		if err != nil {
-			fmt.Printf("Some error  %v", err)
+			log.Printf("Some error  %v", err)
 			continue
 		}
 
 		var msg types.DataMessage
 		if err := json.Unmarshal(p[:n], &msg); err != nil {
-			fmt.Println("Failed to unmarshal data, err:", err)
-			return
+			log.Println("Failed to unmarshal data, err:", err)
+			continue
 		}
 
 		if prevMsg == nil {
@@ -59,7 +58,7 @@ func (listener *UDPDataListener) run() {
 
 		prevMsg = &msg
 
-		// engine.Enqueue(&msg)
+		// log.Printf("Message received: %s", msg.Points[0].Time)
 		engine.NewMsg <- msg
 	}
 }
