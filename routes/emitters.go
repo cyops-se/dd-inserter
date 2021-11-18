@@ -79,7 +79,6 @@ func UpdateEmitter(c *fiber.Ctx) error {
 	}
 
 	db.DB.Save(emitter)
-	db.Log("trace", "Item updated", fmt.Sprintf("ID: %d, item: %#v, instance: %#v", id, emitter, emitter.Instance))
 	emitters.LoadEmitter(emitter)
 
 	c.Status(200)

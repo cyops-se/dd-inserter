@@ -19,12 +19,11 @@ type TimescaleEmitter struct {
 	Authident   bool                  `json:"authident"`
 	Database    string                `json:"database"`
 	Batchsize   int                   `json:"batchsize"`
-	err         error                 `json:"-"`
-	initialized bool                  `json:"-"`
-	messages    chan *types.DataPoint `json:"-"`
-	builder     strings.Builder       `json:"-"`
-	count       uint64                `json:"-"`
-	// DB          *sql.DB               `json:"-"`
+	err         error                 `json:"-" gorm:"-"`
+	initialized bool                  `json:"-" gorm:"-"`
+	messages    chan *types.DataPoint `json:"-" gorm:"-"`
+	builder     strings.Builder       `json:"-" gorm:"-"`
+	count       uint64                `json:"-" gorm:"-"`
 }
 
 var debug *bool

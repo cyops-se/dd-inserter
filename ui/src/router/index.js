@@ -32,6 +32,7 @@ const router = new Router({
       route('ListenerTableView', null, 'pages/listeners'),
       route('EmitterTable', null, 'pages/emitters'),
       route('ImportMetaView', null, 'pages/importmeta'),
+      route('Monitoring', null, 'pages/monitoring'),
       route('TestView', null, 'test'),
 
       // Tables

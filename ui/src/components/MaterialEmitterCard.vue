@@ -29,7 +29,7 @@
               </div>
             </v-col>
             <v-col cols="3">
-              <div class="text-right">
+              <div class="text-right nowrap">
                 <div>Count: {{ emitter.count }}</div>
                 <div>Sequence: {{ emitter.seqno }}</div>
               </div>
@@ -155,4 +155,7 @@
   font-size: .875rem !important
   margin-left: auto
   text-align: right
+
+.nowrap
+  white-space: nowrap
 </style>

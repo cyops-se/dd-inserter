@@ -2,7 +2,6 @@ package engine
 
 import (
 	"container/list"
-	"fmt"
 	"log"
 	"math"
 	"sync"
@@ -92,14 +91,20 @@ func runDataDispatch() {
 			NewEmitMsg <- *totalReceived.DataPoint
 		}
 
-		diff := msg.Counter - sequenceNumber.DataPoint.Value.(uint64)
-		if diff > 1 {
-			db.Log("error", "Sequence number out of sync", fmt.Sprintf("Received %d, had %d, difference: %d",
-				msg.Counter, sequenceNumber.DataPoint.Value.(uint64), diff))
-		}
+		// This is handled in UPDDataListener
+		// prev := sequenceNumber.DataPoint.Value.(uint64)
+		// if prev == 0 {
+		// 	prev = msg.Sequence
+		// }
+
+		// diff := math.Abs(float64(msg.Sequence) - float64(prev))
+		// if diff > 1.0 {
+		// 	db.Error("Engine data dispatch", "Sequence number out of sync, received %d, had %d, difference: %f",
+		// 		msg.Sequence, prev, diff)
+		// }
 
 		// Update sequenceNumber
-		sequenceNumber.DataPoint.Value = msg.Counter
+		sequenceNumber.DataPoint.Value = msg.Sequence
 		sequenceNumber.DataPoint.Time = time.Now().UTC()
 		sequenceNumber.LastEmitted = sequenceNumber.DataPoint.Time
 		NewEmitMsg <- *sequenceNumber.DataPoint

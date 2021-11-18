@@ -167,6 +167,11 @@
           text: 'Users',
         },
         {
+          icon: 'mdi-alert-box-outline',
+          to: '/pages/monitoring',
+          text: 'Alerts',
+        },
+        {
           icon: 'mdi-cog',
           to: '/pages/systemsettings',
           text: 'Settings',

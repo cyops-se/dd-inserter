@@ -14,6 +14,7 @@
           label="Search"
           single-line
           hide-details
+          clearable
         />
       </v-card-title>
       <v-data-table
@@ -43,11 +44,11 @@
           align: 'start',
           filterable: true,
           value: 'time',
-          width: 250,
+          width: 200,
         },
-        { text: 'Category', value: 'category', width: 150 },
-        { text: 'Title', value: 'title', width: 150 },
-        { text: 'Description', value: 'description' },
+        { text: 'Category', value: 'category', width: '10%' },
+        { text: 'Title', value: 'title', width: '20%' },
+        { text: 'Description', value: 'description', width: '60%' },
       ],
       items: [],
       sortDesc: true,

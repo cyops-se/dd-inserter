@@ -34,6 +34,7 @@
                   item-key="path"
                   :filter="filter"
                   :search="search"
+                  clearable
                 >
                   <template v-slot:prepend="{ item, open }">
                     <v-icon v-if="!item.file">

@@ -87,6 +87,8 @@ func runEngine() {
 	emitters.LoadEmitters()
 
 	engine.InitDispatchers()
+	engine.InitFileTransfer()
+	engine.InitMonitor()
 
 	go RunWeb()
 	go emitters.RunDispatch()

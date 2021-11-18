@@ -5,20 +5,28 @@ import (
 	"github.com/cyops-se/dd-inserter/types"
 )
 
-func GetAll() ([]types.KeyValuePair, error) {
-	var items []types.KeyValuePair
-	db.DB.Find(&items)
-	return items, db.DB.Error
-}
-
-func Get(key string) (string, error) {
+func GetSetting(key string) (types.KeyValuePair, error) {
 	var item types.KeyValuePair
-	db.DB.Find(item, "key = ?", key)
-	return item.Value, db.DB.Error
+	result := db.DB.First(&item, "key = ?", key)
+	return item, result.Error
 }
 
-func Set(key string, value string) error {
-	item := &types.KeyValuePair{Key: key, Value: value}
-	db.DB.Save(item)
-	return nil
+func PutSetting(key string, value string) {
+	if item, err := GetSetting(key); err == nil {
+		item.Value = value
+		db.DB.Save(item)
+	} else {
+		item := types.KeyValuePair{Key: key, Value: value}
+		db.DB.Create(&item)
+	}
+}
+
+func InitSetting(key string, value string, description string) types.KeyValuePair {
+	item, err := GetSetting(key)
+	if err != nil {
+		item := types.KeyValuePair{Key: key, Value: value, Extra: description}
+		db.DB.Create(&item)
+	}
+
+	return item
 }

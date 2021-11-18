@@ -29,4 +29,7 @@ func Init() {
 
 	udpmeta := &UDPMetaListener{}
 	udpmeta.InitListener()
+
+	cache := &CacherListener{}
+	cache.InitListener()
 }

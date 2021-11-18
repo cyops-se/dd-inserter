@@ -120,7 +120,7 @@
           text: 'ID',
           align: 'start',
           filterable: false,
-          value: 'id',
+          value: 'ID',
           width: 75,
         },
         { text: 'Name', value: 'name', width: '20%' },

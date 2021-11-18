@@ -28,7 +28,7 @@
     name: 'RabbitMQEmitterEdit',
 
     props: {
-      item: {},
+      item: Object,
     },
   }
 </script>

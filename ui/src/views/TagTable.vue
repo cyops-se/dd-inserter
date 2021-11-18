@@ -23,6 +23,7 @@
             label="Search"
             single-line
             hide-details
+            clearable
           />
           <v-dialog
             v-model="dialog"
