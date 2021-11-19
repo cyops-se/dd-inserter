@@ -137,13 +137,13 @@
       search: '',
       loading: false,
       headers: [
-        // {
-        //   text: 'ID',
-        //   align: 'start',
-        //   filterable: false,
-        //   value: 'id',
-        //   width: 75,
-        // },
+        {
+          text: 'ID',
+          align: 'start',
+          filterable: false,
+          value: 'id',
+          width: 75,
+        },
         { text: 'Name', value: 'name', width: '60%' },
         { text: 'Update Type', value: 'updatetype', width: '15%' },
         { text: 'Interval', value: 'interval', width: '10%' },
@@ -199,11 +199,10 @@
       },
 
       deleteItem (item) {
-        console.log('deleting item: ' + JSON.stringify(item))
-        ApiService.delete('data/opc_tags/' + item.ID)
+        ApiService.delete('proxy/point/' + item.id)
           .then(response => {
             for (var i = 0; i < this.items.length; i++) {
-              if (this.items[i].ID === item.ID) this.items.splice(i, 1)
+              if (this.items[i].id === item.id) this.items.splice(i, 1)
             }
             this.$notification.success('Tag deleted')
           }).catch(response => {
@@ -222,11 +221,9 @@
       save () {
         if (this.editedIndex > -1) {
           this.editedItem.updatetype = this.editedItem.ut.value
-          console.log('edited item: ' + JSON.stringify(this.editedItem))
           Object.assign(this.items[this.editedIndex], this.editedItem)
           ApiService.put('proxy/point', this.editedItem)
             .then(response => {
-              console.log('updated item: ' + JSON.stringify(response.data.item))
               this.$notification.success('Point ' + response.data.item.name + ' successfully updated!')
             }).catch(response => {
               this.$notification.error('Failed to update point!' + response)

@@ -14,7 +14,7 @@ import (
 var queueLock sync.Mutex
 var dpLock sync.Mutex
 var queue list.List
-var datapoints map[string]*types.VolatileDataPoint = make(map[string]*types.VolatileDataPoint)
+var datapoints map[string]*types.VolatileDataPoint // = make(map[string]*types.VolatileDataPoint)
 var NewMsg chan types.DataMessage = make(chan types.DataMessage, 2000)
 var NewMeta chan []*types.DataPointMeta = make(chan []*types.DataPointMeta)
 var NewEmitMsg chan types.DataPoint = make(chan types.DataPoint, 2000)
@@ -46,6 +46,8 @@ func GetDataPoints() ([]types.VolatileDataPoint, error) {
 }
 
 func InitDispatchers() {
+	InitDataPointMap()
+
 	totalReceived.DataPoint = &types.DataPoint{Name: "Total Received", Value: uint64(0)}
 	datapoints[totalReceived.DataPoint.Name] = &totalReceived
 
@@ -55,7 +57,6 @@ func InitDispatchers() {
 	sequenceNumber.DataPoint = &types.DataPoint{Name: "Sequence Number", Value: uint64(0)}
 	datapoints[sequenceNumber.DataPoint.Name] = &sequenceNumber
 
-	InitDataPointMap()
 	go runDataDispatch()
 	// go runMetaDispatch() // disable temporarily until fixed
 }
@@ -63,6 +64,9 @@ func InitDispatchers() {
 func InitDataPointMap() {
 	var items []types.DataPointMeta
 	db.DB.Find(&items)
+
+	datapoints = make(map[string]*types.VolatileDataPoint)
+
 	for _, item := range items {
 		if _, ok := datapoints[item.Name]; !ok {
 			vp := &types.VolatileDataPoint{
@@ -116,8 +120,7 @@ func runDataDispatch() {
 
 			entry, ok := datapoints[dp.Name]
 			if !ok {
-				entry = &types.VolatileDataPoint{}
-				datapoints[dp.Name] = entry
+				entry = createDataPointEntry(&dp)
 			}
 
 			entry.DataPoint = &dp
@@ -189,4 +192,14 @@ func runMetaDispatch() {
 			NewEmitMetaMsg <- *msgitem
 		}
 	}
+}
+
+func createDataPointEntry(dp *types.DataPoint) *types.VolatileDataPoint {
+	var lastitem types.DataPointMeta
+	db.DB.Order("id desc").Last(&lastitem)
+	item := &types.DataPointMeta{Name: dp.Name, IntegratingDeadband: 0.3, ID: lastitem.ID + 1}
+	entry := &types.VolatileDataPoint{DataPoint: dp}
+	datapoints[dp.Name] = entry
+	db.DB.Create(item)
+	return entry
 }
