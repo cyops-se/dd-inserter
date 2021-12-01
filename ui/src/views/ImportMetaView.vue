@@ -138,7 +138,7 @@
         { text: 'Min', value: 'min', width: '5%' },
         { text: 'Max', value: 'max', width: '5%' },
         { text: 'Changed', value: 'changed', width: '5%' },
-        { text: 'Actions', value: 'actions', width: 1, sortable: false },
+        // { text: 'Actions', value: 'actions', width: 1, sortable: false },
       ],
       items: [],
       loading: false,

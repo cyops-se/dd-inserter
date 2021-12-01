@@ -15,6 +15,7 @@ func RegisterProxyRoutes(api fiber.Router) {
 	api.Get("/proxy/group", GetGroups)
 	api.Get("/proxy/point", GetDataPoints)
 	api.Put("/proxy/point", UpdateDataPoint)
+	api.Delete("/proxy/point/:id", DeleteDataPoint)
 }
 
 func handlePanic(c *fiber.Ctx) {
@@ -57,6 +58,18 @@ func UpdateDataPoint(c *fiber.Ctx) (err error) {
 			return handleError(c, err)
 		}
 	} else {
+		return handleError(c, err)
+	}
+
+	engine.InitDataPointMap()
+	return c.Status(200).JSON(&fiber.Map{"item": item})
+}
+
+func DeleteDataPoint(c *fiber.Ctx) (err error) {
+	id := c.Params("id")
+	var item types.DataPointMeta
+	log.Println("Deleting datapoint meta, id:", id)
+	if err = db.DB.Unscoped().Delete(&item, "id = ?", id).Error; err != nil {
 		return handleError(c, err)
 	}
 
