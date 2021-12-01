@@ -26,7 +26,9 @@ func SendAlerts() {
 	smtp := getValue("monitor.smtp")
 	emails := strings.Split(recipients, ",")
 	for _, to := range emails {
-		sendAlert(from, to, subject, smtp, usemx)
+		if to != "" {
+			sendAlert(from, to, subject, smtp, usemx)
+		}
 	}
 }
 

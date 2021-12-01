@@ -56,7 +56,7 @@ func (listener *UDPDataListener) run() {
 
 		seqdiff := math.Abs(float64(msg.Sequence) - float64(prevMsg.Sequence))
 		if seqdiff > 1.0 {
-			db.Error("UDPDataListener sequence", "Sequence not valid, now: %d, previous: %d\n", msg.Sequence, prevMsg.Sequence)
+			// db.Error("UDPDataListener sequence", "Sequence not valid, now: %d, previous: %d\n", msg.Sequence, prevMsg.Sequence)
 			engine.SendAlerts()
 		}
 

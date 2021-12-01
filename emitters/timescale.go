@@ -130,7 +130,7 @@ func (emitter *TimescaleEmitter) connectdb() error {
 		return emitter.err
 	}
 
-	fmt.Println("TIMESCALE connected")
+	log.Printf("TIMESCALE server connected: %s", emitter.Host)
 	return emitter.err
 }
 
@@ -166,7 +166,7 @@ func (emitter *TimescaleEmitter) appendPoint(id int, v *types.DataPoint) bool {
 				value = 1.0
 			}
 
-			fmt.Fprintf(&emitter.builder, "(%d, '%s', %v, %d)", id, v.Time.Format(time.RFC3339), value, v.Quality)
+			fmt.Fprintf(&emitter.builder, "(%d, '%s', %v, %d)", id, v.Time.Format(time.RFC3339Nano), value, v.Quality)
 			emitter.count++
 		}
 	default:
@@ -175,7 +175,8 @@ func (emitter *TimescaleEmitter) appendPoint(id int, v *types.DataPoint) bool {
 				fmt.Fprintf(&emitter.builder, ",")
 			}
 
-			fmt.Fprintf(&emitter.builder, "(%d, '%s', %v, %d)", id, v.Time.Format(time.RFC3339), v.Value, v.Quality)
+			// log.Printf("time %s, %v", v.Time.Format(time.RFC3339Nano), v.Time)
+			fmt.Fprintf(&emitter.builder, "(%d, '%s', %v, %d)", id, v.Time.Format(time.RFC3339Nano), v.Value, v.Quality)
 			emitter.count++
 		}
 	}
@@ -186,14 +187,25 @@ func (emitter *TimescaleEmitter) appendPoint(id int, v *types.DataPoint) bool {
 func (emitter *TimescaleEmitter) insertBatch() error {
 	if emitter.count > 0 {
 		fmt.Fprintf(&emitter.builder, ";")
-		if _, err := TimescaleDB.Exec(emitter.builder.String()); err != nil {
-			if err.(*pq.Error).Code != "23505" { // duplicate key
+		insert := emitter.builder.String()
+		_, err := TimescaleDB.Exec(insert)
+		if err != nil {
+			switch err.(type) {
+			default:
 				log.Printf("failed to insert: %#v", err)
-				fmt.Println(emitter.builder.String())
-				emitter.initBatch()
 				return err
+			case *pq.Error:
+				if err.(*pq.Error).Code != "23505" { // duplicate key
+					log.Printf("failed to insert: %#v", err)
+					fmt.Println(insert)
+					emitter.initBatch()
+					return err
+				}
 			}
 		}
+
+		// log.Printf("%d rows inserted to %s, database %s, result %#v", emitter.count, emitter.Host, emitter.Database, result)
+		// log.Println(insert)
 	}
 
 	return nil

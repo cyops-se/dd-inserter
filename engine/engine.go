@@ -130,7 +130,7 @@ func runDataDispatch() {
 				totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
 				totalUpdated.DataPoint.Time = entry.LastEmitted
 				totalUpdated.LastEmitted = entry.LastEmitted
-				NewEmitMsg <- *totalUpdated.DataPoint
+				// NewEmitMsg <- *totalUpdated.DataPoint
 
 			case types.UpdateTypeDeadband:
 				// Check deadband
@@ -145,7 +145,7 @@ func runDataDispatch() {
 						totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
 						totalUpdated.DataPoint.Time = entry.LastEmitted
 						totalUpdated.LastEmitted = entry.LastEmitted
-						NewEmitMsg <- *totalUpdated.DataPoint
+						// NewEmitMsg <- *totalUpdated.DataPoint
 					}
 				}
 
@@ -157,10 +157,12 @@ func runDataDispatch() {
 					totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
 					totalUpdated.DataPoint.Time = entry.LastEmitted
 					totalUpdated.LastEmitted = entry.LastEmitted
-					NewEmitMsg <- *totalUpdated.DataPoint
+					// NewEmitMsg <- *totalUpdated.DataPoint
 				}
 			}
 		}
+
+		NewEmitMsg <- *totalUpdated.DataPoint
 
 		dpLock.Unlock()
 	}
