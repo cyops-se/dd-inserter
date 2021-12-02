@@ -68,8 +68,8 @@ func (emitter *TimescaleEmitter) processMessages() {
 		_, isint := dp.Value.(int)
 		_, isuint64 := dp.Value.(uint64)
 		if !isfloat64 && !isint && !isuint64 {
-			log.Println("datapoint not float64 or int or uint64:", dp.Name)
-			return
+			db.Log("error", "TimescaleDB emitter", fmt.Sprintf("Datapoint '%s' not float64 or int or uint64: '%T'", dp.Name, dp.Value))
+			continue
 		}
 
 		// use 'ids' as a local datapoint name cache to resolve id
@@ -116,8 +116,10 @@ func (emitter *TimescaleEmitter) GetStats() *types.EmitterStatistics {
 }
 
 func (emitter *TimescaleEmitter) connectdb() error {
-	dburl := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", emitter.User, emitter.Password, emitter.Host, emitter.Database)
-	TimescaleDBConn, emitter.err = pgx.Connect(context.Background(), dburl)
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		emitter.Host, emitter.Port, emitter.User, emitter.Password, emitter.Database)
+	// dburl := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", emitter.User, emitter.Password, emitter.Host, emitter.Database)
+	TimescaleDBConn, emitter.err = pgx.Connect(context.Background(), psqlInfo)
 	if emitter.err != nil {
 		db.Log("error", "TimescaleDB emitter", fmt.Sprintf("Failed to connect to the database, err: %s", emitter.err.Error()))
 		return emitter.err

@@ -3,6 +3,7 @@ package engine
 import (
 	"log"
 	"math"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -89,14 +90,6 @@ func runDataDispatch() {
 	for {
 		msg := <-NewMsg
 
-		// Update totalRecevied
-		totalReceived.DataPoint.Value = totalReceived.DataPoint.Value.(uint64) + uint64(msg.Count)
-		if time.Now().UTC().Sub(totalReceived.DataPoint.Time) > time.Second {
-			totalReceived.DataPoint.Time = time.Now().UTC()
-			totalReceived.LastEmitted = totalReceived.DataPoint.Time
-			NewEmitMsg <- *totalReceived.DataPoint
-		}
-
 		// Handle sequence number montioring and alerting
 		gi, ok := groupseq[msg.Group]
 		if !ok {
@@ -107,17 +100,19 @@ func runDataDispatch() {
 		}
 
 		diff := math.Abs(float64(msg.Sequence) - float64(gi.sequenceNumber.DataPoint.Value.(uint64)))
-		if diff > 1.0 && gi.sequenceNumber.DataPoint.Value.(uint64) > 0 {
-			db.Error("Engine data dispatch", "Sequence number out of sync, received %d, had %d, difference: %f",
-				msg.Sequence, gi.sequenceNumber.DataPoint.Value, diff)
+		if diff > 5.0 && gi.sequenceNumber.DataPoint.Value.(uint64) > 0 {
+			db.Error("Engine data dispatch", "Sequence number out of sync for group %s, received %d, had %d, difference: %d", gi.groupName,
+				msg.Sequence, gi.sequenceNumber.DataPoint.Value, uint(diff))
 			SendAlerts()
+		} else {
+			// Update sequenceNumber
+			gi.sequenceNumber.DataPoint.Value = msg.Sequence
+			gi.sequenceNumber.DataPoint.Time = time.Now().UTC().Add(time.Nanosecond * time.Duration(rand.Uint64()))
+			gi.sequenceNumber.LastEmitted = gi.sequenceNumber.DataPoint.Time
+			// NewEmitMsg <- *gi.sequenceNumber.DataPoint
 		}
 
-		// Update sequenceNumber
 		gi.sequenceNumber.DataPoint.Value = msg.Sequence
-		gi.sequenceNumber.DataPoint.Time = time.Now().UTC()
-		gi.sequenceNumber.LastEmitted = gi.sequenceNumber.DataPoint.Time
-		NewEmitMsg <- *gi.sequenceNumber.DataPoint
 
 		// Update internal data point table
 		dpLock.Lock()
@@ -159,11 +154,19 @@ func runDataDispatch() {
 			}
 		}
 
-		totalUpdated.DataPoint.Time = time.Now().UTC()
-		totalUpdated.LastEmitted = totalUpdated.DataPoint.Time
-		NewEmitMsg <- *totalUpdated.DataPoint
-
 		dpLock.Unlock()
+
+		// Update totalRecevied and totalUpdated
+		totalReceived.DataPoint.Value = totalReceived.DataPoint.Value.(uint64) + uint64(msg.Count)
+		if time.Now().UTC().Sub(totalReceived.DataPoint.Time) > time.Second {
+			totalReceived.DataPoint.Time = time.Now().UTC()
+			totalReceived.LastEmitted = totalReceived.DataPoint.Time
+			NewEmitMsg <- *totalReceived.DataPoint
+
+			totalUpdated.DataPoint.Time = time.Now().UTC()
+			totalUpdated.LastEmitted = totalUpdated.DataPoint.Time
+			NewEmitMsg <- *totalUpdated.DataPoint
+		}
 	}
 }
 

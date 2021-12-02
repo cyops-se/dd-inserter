@@ -64,23 +64,9 @@ func (emitter *RabbitMQEmitter) InitEmitter() error {
 	go emitter.processMessages()
 
 	emitter.initialized = true
-	return emitter.err
+	db.Log("info", "RABBITMQ emitter", fmt.Sprintf("RabbitMQ server connected: %s", emitter.Urls))
+	return nil
 }
-
-// func (emitter *RabbitMQEmitter) LoadSettingsJSON(settings string) error {
-// 	// settings is a JSON object with all settings (serialized from RabbitMQEmitter)
-// 	return json.Unmarshal([]byte(settings), &emitter)
-// }
-
-// func (emitter *RabbitMQEmitter) GetSettingsJSON() (string, error) {
-// 	settings, err := json.Marshal(emitter)
-// 	if err != nil {
-// 		db.Log("error", "Failed to save RabbitMQ settings", err.Error())
-// 		return "", err
-// 	}
-
-// 	return string(settings), nil
-// }
 
 func (emitter *RabbitMQEmitter) ProcessMessage(dp *types.DataPoint) {
 	if dp == nil || !emitter.initialized {
@@ -94,9 +80,21 @@ func (emitter *RabbitMQEmitter) processMessages() {
 	for {
 		dp := <-emitter.messages
 
-		// Only accept data points of floating point type
-		if _, ok := dp.Value.(float64); !ok {
-			return
+		switch v := dp.Value.(type) {
+		case float64: // Skip
+		case int:
+			dp.Value = float64(v)
+		case uint:
+			dp.Value = float64(v)
+		case int64:
+			dp.Value = float64(v)
+		case uint64:
+			dp.Value = float64(v)
+		case float32:
+			dp.Value = float64(v)
+		default:
+			db.Log("error", "RabbitMQ emitter", fmt.Sprintf("Datapoint '%s' has an unsupported type: '%T'", dp.Name, dp.Value))
+			continue
 		}
 
 		// Use safe marshalling to avoid human mistakes when formatting JSON
@@ -110,13 +108,15 @@ func (emitter *RabbitMQEmitter) processMessages() {
 			false,              // immediate
 			amqp.Publishing{
 				ContentType: "text/json",
-				Body:        []byte(body),
+				Body:        body,
 			})
 
 		if emitter.err != nil {
-			db.Log("error", "RabbitMQ init", fmt.Sprintf("Failed to publish message: %v", emitter.err.Error()))
-			return
+			db.Log("error", "RabbitMQ emitter", fmt.Sprintf("Failed to publish message: %v (processMessages)", emitter.err.Error()))
+			continue
 		}
+
+		// db.Log("info", "RabbitMQ emitter", fmt.Sprintf("Message published: %s (processMessages)", string(body)))
 	}
 }
 
