@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"container/list"
 	"log"
 	"math"
 	"sync"
@@ -11,10 +10,14 @@ import (
 	"github.com/cyops-se/dd-inserter/types"
 )
 
-var queueLock sync.Mutex
+type groupSequenceInfo struct {
+	groupName      string
+	sequenceNumber types.VolatileDataPoint
+}
+
 var dpLock sync.Mutex
-var queue list.List
 var datapoints map[string]*types.VolatileDataPoint // = make(map[string]*types.VolatileDataPoint)
+var groupseq map[string]*groupSequenceInfo
 var NewMsg chan types.DataMessage = make(chan types.DataMessage, 2000)
 var NewMeta chan []*types.DataPointMeta = make(chan []*types.DataPointMeta)
 var NewEmitMsg chan types.DataPoint = make(chan types.DataPoint, 2000)
@@ -24,7 +27,8 @@ var NewEmitMetaMsg chan types.DataPointMeta = make(chan types.DataPointMeta, 200
 // var totalUpdated types.DataPoint
 var totalReceived types.VolatileDataPoint
 var totalUpdated types.VolatileDataPoint
-var sequenceNumber types.VolatileDataPoint
+
+// var sequenceNumber types.VolatileDataPoint
 
 func GetGroups() ([]*interface{}, error) {
 	return nil, nil
@@ -47,15 +51,13 @@ func GetDataPoints() ([]types.VolatileDataPoint, error) {
 
 func InitDispatchers() {
 	InitDataPointMap()
+	groupseq = make(map[string]*groupSequenceInfo)
 
 	totalReceived.DataPoint = &types.DataPoint{Name: "Total Received", Value: uint64(0)}
 	datapoints[totalReceived.DataPoint.Name] = &totalReceived
 
 	totalUpdated.DataPoint = &types.DataPoint{Name: "Total Updated", Value: uint64(0)}
 	datapoints[totalUpdated.DataPoint.Name] = &totalUpdated
-
-	sequenceNumber.DataPoint = &types.DataPoint{Name: "Sequence Number", Value: uint64(0)}
-	datapoints[sequenceNumber.DataPoint.Name] = &sequenceNumber
 
 	go runDataDispatch()
 	// go runMetaDispatch() // disable temporarily until fixed
@@ -95,28 +97,31 @@ func runDataDispatch() {
 			NewEmitMsg <- *totalReceived.DataPoint
 		}
 
-		// This is handled in UPDDataListener
-		// prev := sequenceNumber.DataPoint.Value.(uint64)
-		// if prev == 0 {
-		// 	prev = msg.Sequence
-		// }
+		// Handle sequence number montioring and alerting
+		gi, ok := groupseq[msg.Group]
+		if !ok {
+			gi = &groupSequenceInfo{groupName: msg.Group}
+			gi.sequenceNumber.DataPoint = &types.DataPoint{Name: "Sequence Number: " + gi.groupName, Value: uint64(0)}
+			datapoints[gi.sequenceNumber.DataPoint.Name] = &gi.sequenceNumber
+			groupseq[msg.Group] = gi
+		}
 
-		// diff := math.Abs(float64(msg.Sequence) - float64(prev))
-		// if diff > 1.0 {
-		// 	db.Error("Engine data dispatch", "Sequence number out of sync, received %d, had %d, difference: %f",
-		// 		msg.Sequence, prev, diff)
-		// }
+		diff := math.Abs(float64(msg.Sequence) - float64(gi.sequenceNumber.DataPoint.Value.(uint64)))
+		if diff > 1.0 && gi.sequenceNumber.DataPoint.Value.(uint64) > 0 {
+			db.Error("Engine data dispatch", "Sequence number out of sync, received %d, had %d, difference: %f",
+				msg.Sequence, gi.sequenceNumber.DataPoint.Value, diff)
+			SendAlerts()
+		}
 
 		// Update sequenceNumber
-		sequenceNumber.DataPoint.Value = msg.Sequence
-		sequenceNumber.DataPoint.Time = time.Now().UTC()
-		sequenceNumber.LastEmitted = sequenceNumber.DataPoint.Time
-		NewEmitMsg <- *sequenceNumber.DataPoint
+		gi.sequenceNumber.DataPoint.Value = msg.Sequence
+		gi.sequenceNumber.DataPoint.Time = time.Now().UTC()
+		gi.sequenceNumber.LastEmitted = gi.sequenceNumber.DataPoint.Time
+		NewEmitMsg <- *gi.sequenceNumber.DataPoint
 
 		// Update internal data point table
 		dpLock.Lock()
 		for _, dp := range msg.Points {
-			// log.Printf("Processing %s, name: %s", dp.Time, dp.Name)
 
 			entry, ok := datapoints[dp.Name]
 			if !ok {
@@ -127,13 +132,9 @@ func runDataDispatch() {
 
 			switch updateType := entry.UpdateType; updateType {
 			case types.UpdateTypePassthru:
-				// log.Println("Emitting passthru", entry.DataPoint.Name)
 				entry.LastEmitted = time.Now().UTC()
 				NewEmitMsg <- dp
 				totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
-				totalUpdated.DataPoint.Time = entry.LastEmitted
-				totalUpdated.LastEmitted = entry.LastEmitted
-				// NewEmitMsg <- *totalUpdated.DataPoint
 
 			case types.UpdateTypeDeadband:
 				// Check deadband
@@ -146,25 +147,20 @@ func runDataDispatch() {
 						entry.LastEmitted = time.Now().UTC()
 						NewEmitMsg <- dp
 						totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
-						totalUpdated.DataPoint.Time = entry.LastEmitted
-						totalUpdated.LastEmitted = entry.LastEmitted
-						// NewEmitMsg <- *totalUpdated.DataPoint
 					}
 				}
 
 			case types.UpdateTypeInterval:
 				if time.Since(entry.LastEmitted) > time.Duration(entry.Interval)*time.Second {
-					// log.Println("Emitting interval", entry.DataPoint.Name)
 					entry.LastEmitted = time.Now().UTC()
 					NewEmitMsg <- dp
 					totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
-					totalUpdated.DataPoint.Time = entry.LastEmitted
-					totalUpdated.LastEmitted = entry.LastEmitted
-					// NewEmitMsg <- *totalUpdated.DataPoint
 				}
 			}
 		}
 
+		totalUpdated.DataPoint.Time = time.Now().UTC()
+		totalUpdated.LastEmitted = totalUpdated.DataPoint.Time
 		NewEmitMsg <- *totalUpdated.DataPoint
 
 		dpLock.Unlock()

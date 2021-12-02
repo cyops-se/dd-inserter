@@ -17,7 +17,6 @@ import (
 	"github.com/cyops-se/dd-inserter/engine"
 	"github.com/cyops-se/dd-inserter/listeners"
 	"github.com/cyops-se/dd-inserter/routes"
-	_ "github.com/lib/pq"
 	"golang.org/x/sys/windows/svc"
 )
 

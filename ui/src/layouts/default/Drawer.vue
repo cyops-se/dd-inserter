@@ -121,10 +121,6 @@
           href: 'http://cyops.se/about',
           text: 'About cyops.se',
         },
-        // {
-        //   href: 'http://cyops.se/blog',
-        //   text: 'Blog',
-        // },
         {
           href: 'http://github.com/cyops-se/dd-inserter/LICENSES.md',
           text: 'Licenses',
@@ -141,11 +137,6 @@
           text: 'Tags meta',
           to: '/pages/importmeta',
         },
-        // {
-        //   icon: 'mdi-ear-hearing',
-        //   text: 'Listeners',
-        //   to: '/pages/listeners',
-        // },
         {
           icon: 'mdi-antenna',
           text: 'Emitters',

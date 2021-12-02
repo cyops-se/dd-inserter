@@ -93,21 +93,9 @@
 
     created () {
       this.loading = true
-      // ApiService.get('data/emitters')
-      //   .then(response => {
-      //     this.tags = response.data
-      //     this.stats[0].value = this.tags.length.toString()
-      //     this.stats[0].actionText = 'Updated: ' + new Date().toISOString().replace('T', ' ').replace('Z', '').substring(0, 19)
-      //   }).catch(response => {
-      //     console.log('ERROR response: ' + JSON.stringify(response))
-      //   })
       ApiService.get('data/emitters')
         .then(response => {
           this.emitters = response.data
-          console.log('this.emitters: ' + JSON.stringify(this.emitters))
-          // this.stats[1].value = this.emitters.length.toString()
-          // this.stats[1].actionText = 'Updated: ' + new Date().toISOString().replace('T', ' ').replace('Z', '').substring(0, 19)
-          // this.charts = []
         }).catch(response => {
           console.log('ERROR response: ' + JSON.stringify(response))
         })

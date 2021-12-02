@@ -2,9 +2,11 @@ package routes
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 
@@ -22,11 +24,13 @@ func RegisterImportRoutes(api fiber.Router) {
 
 func GetMetaAll(c *fiber.Ctx) error {
 	var items []*types.Meta
-	if rows, err := emitters.TimescaleDB.Query("select tag_id,name,description,location,type,unit,min,max from measurements.tags"); err == nil {
+	// if rows, err := emitters.TimescaleDB.Query("select tag_id,name,description,location,type,unit,min,max from measurements.tags"); err == nil {
+	if rows, err := emitters.TimescaleDBConn.Query(context.Background(), "select tag_id,name,description,location,type,unit,min,max from measurements.tags"); err == nil {
 		for rows.Next() {
 			item := &types.Meta{}
 			rows.Scan(&item.TagId, &item.Name, &item.Description, &item.Location, &item.Type, &item.Unit, &item.Min, &item.Max)
 			items = append(items, item)
+			log.Printf("META init of %s", item.Name)
 		}
 
 		rows.Close()
@@ -73,7 +77,8 @@ func PostMetaChanges(c *fiber.Ctx) error {
 	}
 
 	for _, item := range items {
-		if _, err := emitters.TimescaleDB.Exec("update measurements.tags set description=$2,location=$3,type=$4,unit=$5,min=$6,max=$7 where tag_id = $1",
+		// if _, err := emitters.TimescaleDB.Exec("update measurements.tags set description=$2,location=$3,type=$4,unit=$5,min=$6,max=$7 where tag_id = $1",
+		if _, err := emitters.TimescaleDBConn.Exec(context.Background(), "update measurements.tags set description=$2,location=$3,type=$4,unit=$5,min=$6,max=$7 where tag_id = $1",
 			item.TagId, item.Description, item.Location, item.Type, item.Unit, item.Min, item.Max); err != nil {
 			db.Log("error", "Failed to update meta", err.Error())
 		}

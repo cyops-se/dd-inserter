@@ -1,40 +1,41 @@
 package emitters
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"strings"
 	"time"
 
+	"github.com/cyops-se/dd-inserter/db"
 	"github.com/cyops-se/dd-inserter/types"
-	"github.com/lib/pq"
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4"
 )
 
 type TimescaleEmitter struct {
-	Host        string                `json:"host"`
-	Port        int                   `json:"port"`
-	User        string                `json:"user"`
-	Password    string                `json:"password"`
-	Authident   bool                  `json:"authident"`
-	Database    string                `json:"database"`
-	Batchsize   int                   `json:"batchsize"`
-	err         error                 `json:"-" gorm:"-"`
-	initialized bool                  `json:"-" gorm:"-"`
-	messages    chan *types.DataPoint `json:"-" gorm:"-"`
-	builder     strings.Builder       `json:"-" gorm:"-"`
-	count       uint64                `json:"-" gorm:"-"`
+	Host      string                `json:"host"`
+	Port      int                   `json:"port"`
+	User      string                `json:"user"`
+	Password  string                `json:"password"`
+	Authident bool                  `json:"authident"`
+	Database  string                `json:"database"`
+	Batchsize int                   `json:"batchsize"`
+	err       error                 `json:"-" gorm:"-"`
+	messages  chan *types.DataPoint `json:"-" gorm:"-"`
+	builder   strings.Builder       `json:"-" gorm:"-"`
+	count     uint64                `json:"-" gorm:"-"`
 }
 
 var debug *bool
 var batchSize *int
-var TimescaleDB *sql.DB
+
+var TimescaleDBConn *pgx.Conn
 var ids map[string]int
 
 func (emitter *TimescaleEmitter) InitEmitter() error {
-	if err := emitter.connectdb(); err == nil {
-		emitter.initialized = true
-	}
+	emitter.connectdb()
 
 	ids = make(map[string]int)
 	emitter.initBatch()
@@ -42,21 +43,25 @@ func (emitter *TimescaleEmitter) InitEmitter() error {
 	emitter.messages = make(chan *types.DataPoint, 2000)
 	go emitter.processMessages()
 
-	return emitter.err
+	return nil
 }
 
 func (emitter *TimescaleEmitter) ProcessMessage(dp *types.DataPoint) {
-	if emitter.initialized == false {
-		return
+	if emitter.messages != nil {
+		emitter.messages <- dp
 	}
-
-	emitter.messages <- dp
 }
 
 func (emitter *TimescaleEmitter) processMessages() {
 
 	for {
 		dp := <-emitter.messages
+
+		if TimescaleDBConn == nil {
+			if emitter.connectdb() != nil {
+				continue
+			}
+		}
 
 		var err error
 		_, isfloat64 := dp.Value.(float64)
@@ -72,9 +77,10 @@ func (emitter *TimescaleEmitter) processMessages() {
 		// if not in the database, insert a new meta item and get the new id
 		id, ok := ids[dp.Name]
 		if !ok {
-			if err = TimescaleDB.QueryRow("select tag_id from measurements.tags where name=$1", dp.Name).Scan(&id); err != nil {
-				if err == sql.ErrNoRows {
-					TimescaleDB.QueryRow("insert into measurements.tags (name) values ($1) returning tag_id", dp.Name).Scan(&id)
+			if err = TimescaleDBConn.QueryRow(context.Background(), "select tag_id from measurements.tags where name=$1", dp.Name).Scan(&id); err != nil {
+				log.Printf("TIMESCALEDB couldn't find %s in database, error: %s, type: %T, err value: %#v", dp.Name, err.Error(), err, err)
+				if err == pgx.ErrNoRows {
+					err = TimescaleDBConn.QueryRow(context.Background(), "insert into measurements.tags (name) values ($1) returning tag_id", dp.Name).Scan(&id)
 				}
 			}
 			ids[dp.Name] = id
@@ -86,21 +92,20 @@ func (emitter *TimescaleEmitter) processMessages() {
 				emitter.initBatch()
 			}
 		} else {
-			fmt.Println("TIMESCALEDB insert process data failed, err:", err.Error())
+			log.Println("TIMESCALEDB insert process data failed, err:", err.Error())
 		}
 	}
 }
 
 func (emitter *TimescaleEmitter) ProcessMeta(dp *types.DataPointMeta) {
-	// fmt.Println("TIMESCALE emitter processing META message")
 
 	var id int
 	if emitter.rowExists("select name from measurements.tags where name=$1", dp.Name) == false {
-		if err := TimescaleDB.QueryRow("insert into measurements.tags (name, description) values ($1, $2) returning tag_id", dp.Name, dp.Description).Scan(&id); err != nil {
+		if err := TimescaleDBConn.QueryRow(context.Background(), "insert into measurements.tags (name, description) values ($1, $2) returning tag_id", dp.Name, dp.Description).Scan(&id); err != nil {
 			fmt.Println("TIMESCALE failed to insert,", err.Error())
 		}
 	} else {
-		if _, err := TimescaleDB.Exec("update measurements.tags set description = $2 where name = $1", dp.Name, dp.Description); err != nil {
+		if _, err := TimescaleDBConn.Exec(context.Background(), "update measurements.tags set description = $2 where name = $1", dp.Name, dp.Description); err != nil {
 			fmt.Println("TIMESCALE failed to update,", err.Error())
 		}
 	}
@@ -111,33 +116,21 @@ func (emitter *TimescaleEmitter) GetStats() *types.EmitterStatistics {
 }
 
 func (emitter *TimescaleEmitter) connectdb() error {
-	psqlInfo := fmt.Sprintf("dbname=%s sslmode=disable", emitter.Database)
-	if !emitter.Authident {
-		psqlInfo = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-			emitter.Host, emitter.Port, emitter.User, emitter.Password, emitter.Database)
-
-	}
-
-	TimescaleDB, emitter.err = sql.Open("postgres", psqlInfo)
+	dburl := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", emitter.User, emitter.Password, emitter.Host, emitter.Database)
+	TimescaleDBConn, emitter.err = pgx.Connect(context.Background(), dburl)
 	if emitter.err != nil {
-		fmt.Println("Failed to connect to the database, err:", emitter.err)
+		db.Log("error", "TimescaleDB emitter", fmt.Sprintf("Failed to connect to the database, err: %s", emitter.err.Error()))
 		return emitter.err
 	}
 
-	emitter.err = TimescaleDB.Ping()
-	if emitter.err != nil {
-		fmt.Println("Database PING failed, err:", emitter.err)
-		return emitter.err
-	}
-
-	log.Printf("TIMESCALE server connected: %s", emitter.Host)
+	db.Log("info", "TimescaleDB emitter", fmt.Sprintf("Database server connected: %s", emitter.Host))
 	return emitter.err
 }
 
 func (emitter *TimescaleEmitter) rowExists(query string, args ...interface{}) bool {
 	var exists bool
 	query = fmt.Sprintf("SELECT exists (%s)", query)
-	err := TimescaleDB.QueryRow(query, args...).Scan(&exists)
+	err := TimescaleDBConn.QueryRow(context.Background(), query, args...).Scan(&exists)
 	if err != nil && err != sql.ErrNoRows {
 		log.Fatalf("error checking if row exists '%s' %v", args, err)
 	}
@@ -175,7 +168,6 @@ func (emitter *TimescaleEmitter) appendPoint(id int, v *types.DataPoint) bool {
 				fmt.Fprintf(&emitter.builder, ",")
 			}
 
-			// log.Printf("time %s, %v", v.Time.Format(time.RFC3339Nano), v.Time)
 			fmt.Fprintf(&emitter.builder, "(%d, '%s', %v, %d)", id, v.Time.Format(time.RFC3339Nano), v.Value, v.Quality)
 			emitter.count++
 		}
@@ -188,24 +180,25 @@ func (emitter *TimescaleEmitter) insertBatch() error {
 	if emitter.count > 0 {
 		fmt.Fprintf(&emitter.builder, ";")
 		insert := emitter.builder.String()
-		_, err := TimescaleDB.Exec(insert)
+		_, err := TimescaleDBConn.Exec(context.Background(), insert)
 		if err != nil {
-			switch err.(type) {
+			switch err := err.(type) {
 			default:
-				log.Printf("failed to insert: %#v", err)
+				db.Log("error", "TimescaleDB emitter", fmt.Sprintf("failed to insert: %#v", err))
+				// log.Println(insert)
+				emitter.initBatch()
 				return err
-			case *pq.Error:
-				if err.(*pq.Error).Code != "23505" { // duplicate key
-					log.Printf("failed to insert: %#v", err)
-					fmt.Println(insert)
-					emitter.initBatch()
-					return err
+			case *pgconn.PgError:
+				if err.Code == "57P01" {
+					return emitter.connectdb()
 				}
+
+				db.Log("error", "TimescaleDB emitter", fmt.Sprintf("failed to insert: %#v", err))
+				// log.Println(insert)
+				emitter.initBatch()
+				return err
 			}
 		}
-
-		// log.Printf("%d rows inserted to %s, database %s, result %#v", emitter.count, emitter.Host, emitter.Database, result)
-		// log.Println(insert)
 	}
 
 	return nil
