@@ -28,7 +28,6 @@
 <script>
   // Utilities
   import { get } from 'vuex-pathify'
-  import ApiService from '@/services/api.service'
 
   export default {
     name: 'DefaultDrawerHeader',
@@ -37,14 +36,5 @@
     }),
 
     computed: { version: get('app/version') },
-
-    created () {
-      ApiService.get('system/info')
-        .then(response => {
-          this.sysinfo = response.data
-        }).catch(response => {
-          console.log('ERROR response: ' + JSON.stringify(response))
-        })
-    },
   }
 </script>

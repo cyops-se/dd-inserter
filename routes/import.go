@@ -24,6 +24,12 @@ func RegisterImportRoutes(api fiber.Router) {
 
 func GetMetaAll(c *fiber.Ctx) error {
 	var items []*types.Meta
+	if emitters.TimescaleDBConn == nil {
+		msg := "TimescaleDB session not established"
+		db.Log("error", "GetMetaAll", msg)
+		return c.Status(http.StatusBadRequest).JSON(&fiber.Map{"error": msg})
+	}
+
 	// if rows, err := emitters.TimescaleDB.Query("select tag_id,name,description,location,type,unit,min,max from measurements.tags"); err == nil {
 	if rows, err := emitters.TimescaleDBConn.Query(context.Background(), "select tag_id,name,description,location,type,unit,min,max from measurements.tags"); err == nil {
 		for rows.Next() {
@@ -31,6 +37,10 @@ func GetMetaAll(c *fiber.Ctx) error {
 			rows.Scan(&item.TagId, &item.Name, &item.Description, &item.Location, &item.Type, &item.Unit, &item.Min, &item.Max)
 			items = append(items, item)
 			log.Printf("META init of %s", item.Name)
+		}
+
+		if rows.Err() != nil {
+			log.Printf("Failed to iterate through all meta rows, err: %s", rows.Err().Error())
 		}
 
 		rows.Close()
@@ -70,6 +80,12 @@ func PostMetaImport(c *fiber.Ctx) error {
 }
 
 func PostMetaChanges(c *fiber.Ctx) error {
+	if emitters.TimescaleDBConn == nil {
+		msg := "TimescaleDB session not established"
+		db.Log("error", "PostMetaChanges", msg)
+		return c.Status(http.StatusBadRequest).JSON(&fiber.Map{"error": msg})
+	}
+
 	var items []types.Meta
 	if err := c.BodyParser(&items); err != nil {
 		db.Log("error", "Failed to map provided data to types.Meta array", err.Error())

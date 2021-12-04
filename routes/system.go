@@ -13,7 +13,6 @@ type SystemInformation struct {
 var SysInfo SystemInformation
 
 func RegisterSystemRoutes(api fiber.Router) {
-	api.Get("/system/info", GetSysInfo)
 	api.Post("/system/testmail", PostTestMail)
 }
 

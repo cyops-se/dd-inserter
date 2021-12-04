@@ -14,7 +14,7 @@
         <v-img
           class="rounded-circle elevation-12 mt-n12"
           src="@/assets/cyops-se.png"
-          width="128"
+          max-width="128"
           contain
           :aspect-ratio="1"
         />
@@ -29,7 +29,7 @@
           <v-spacer />
           <span
             style="font-size:0.6rem; "
-          >Version {{ version }}</span>
+          >{{ sysinfo.gitversion }}</span>
         </v-toolbar>
         <v-form
           ref="form"
@@ -107,7 +107,7 @@
       ],
     }),
 
-    computed: { version: get('app/version') },
+    computed: { sysinfo: get('app/sysinfo') },
 
     mounted () {
     },

@@ -7,7 +7,9 @@
 <script>
   // Styles
   import '@/styles/overrides.sass'
+  import { sync } from 'vuex-pathify'
   import WebsocketService from '@/services/websocket.service'
+  import ApiService from '@/services/api.service'
 
   export default {
     name: 'App',
@@ -21,8 +23,20 @@
       ],
     },
 
+    computed: {
+      sysinfo: sync('app/sysinfo'),
+    },
+
     created () {
+      console.log('connecting web socket ...')
       WebsocketService.connect()
+
+      ApiService.get('system/info')
+        .then(response => {
+          this.sysinfo = response.data
+        }).catch(response => {
+          console.log('ERROR response: ' + JSON.stringify(response))
+        })
     },
   }
 </script>
