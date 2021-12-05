@@ -1,6 +1,6 @@
 ![example usage](./assets/cyops.png)
 # Installation and configuration of Timescale
-```dd-inserter``` recevies process data from the OPC data collector [dd-opcda](https://github.com/cyops-se/dd-opcda) and stores them in a Timescale timeseries database. A typical use case can be found in the [README](./README.md) for ```dd-inserter```.
+```dd-inserter``` recevies process data from the OPC data collector [dd-inserter](https://github.com/cyops-se/dd-inserter) and stores them in a Timescale timeseries database. A typical use case can be found in the [README](./README.md) for ```dd-inserter```.
 
 ## Step by step instruction (Windows Server 2012)
 You must have administrator rights to complete this instruction
