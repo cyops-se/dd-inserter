@@ -85,12 +85,6 @@
     computed: {
     },
 
-    watch: {
-      $route (to, from) {
-        console.log('route change: ', to, from)
-      },
-    },
-
     created () {
       this.loading = true
       ApiService.get('data/emitters')

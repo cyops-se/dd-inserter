@@ -199,7 +199,6 @@
         this.items.splice(this.editedIndex, 1)
         this.closeDelete()
 
-        console.log('item: ' + JSON.stringify(this.editedItem))
         ApiService.delete('data/users/' + this.editedItem.ID, this.editedItem)
           .then(response => {
             this.$notification.success('User successfully deleted!')

@@ -147,7 +147,6 @@
       this.editedIndex = -1
       ApiService.get('emitter')
         .then(response => {
-          console.log('response.data: ' + JSON.stringify(response.data))
           this.items = response.data || []
           this.loading = false
         }).catch(response => {

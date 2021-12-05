@@ -178,12 +178,10 @@
         var reader = new FileReader()
         var t = this
         reader.onload = function (event) {
-          console.log('file content loaded: ' + event.target.result)
           var j = t.csvJSON(event.target.result)
           t.content = j
           t.processResponse(j)
         }
-        console.log('loading file: ' + files[0].name)
         reader.readAsText(files[0])
       },
 
@@ -206,7 +204,6 @@
           var max = parseFloat(record[4])
           var unit = record[5]
 
-          console.log('processing record: ' + record)
 
           if (inuse !== 'x') continue
           // if (tagname !== 'A001092AQ900') continue
@@ -220,14 +217,12 @@
             if (same) same |= item.min === min
             if (same) same |= item.max === max
 
-            console.log('same: ' + same, item.description, description, item.description === description)
             if (!same) {
               item.description = description
               item.unit = unit
               item.min = min
               item.max = max
               item.changed = true
-              console.log('item changed: ' + JSON.stringify(item))
             } else {
               item.changed = false
             }

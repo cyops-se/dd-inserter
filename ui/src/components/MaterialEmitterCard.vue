@@ -93,12 +93,6 @@
       timer: null,
     }),
 
-    watch: {
-      $route (to, from) {
-        console.log('route change: ', to, from)
-      },
-    },
-
     created () {
       var t = this
       WebsocketService.topic('data.point', function (topic, message) {
@@ -116,7 +110,6 @@
 
     methods: {
       startStop () {
-        console.log('START STOP: ' + this.group.name)
         var action = this.copy.status === 1 ? 'stop' : 'start'
         ApiService.get('opc/group/' + action + '/' + this.group.ID)
           .then(response => {
@@ -128,7 +121,6 @@
                 this.timer = setInterval(this.refresh, this.copy.interval * 1000)
               }
             } else {
-              console.log('clearing timer for: ' + this.group.name)
               clearInterval(this.timer)
               this.timer = null
             }

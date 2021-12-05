@@ -27,14 +27,11 @@
 
 <script>
   // Utilities
-  import { get } from 'vuex-pathify'
+  import { sync } from 'vuex-pathify'
 
   export default {
     name: 'DefaultDrawerHeader',
-    data: () => ({
-      sysinfo: {},
-    }),
 
-    computed: { version: get('app/version') },
+    computed: { sysinfo: sync('app/sysinfo') },
   }
 </script>
