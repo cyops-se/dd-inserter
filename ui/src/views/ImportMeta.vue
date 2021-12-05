@@ -146,20 +146,19 @@
     }),
 
     created () {
-      ApiService.get('meta/all')
-        .then(response => {
-          this.items = response.data
-          console.log('response.data: ' + JSON.stringify(response.data))
-          // for (var i = 0; i < this.items.length; i++) {
-          //   this.items[i].changed = false
-          // }
-          this.loading = false
-        }).catch(response => {
-          console.log('ERROR response: ' + JSON.stringify(response))
-        })
+      this.update()
     },
 
     methods: {
+      update () {
+        ApiService.get('meta/all')
+          .then(response => {
+            this.items = response.data
+            this.loading = false
+          }).catch(response => {
+            console.log('ERROR response: ' + JSON.stringify(response))
+          })
+      },
       processUploadV1 (files) {
         var t = this
         ApiService.upload('meta/import', files)
@@ -206,6 +205,8 @@
           var min = parseFloat(record[3])
           var max = parseFloat(record[4])
           var unit = record[5]
+
+          console.log('processing record: ' + record)
 
           if (inuse !== 'x') continue
           // if (tagname !== 'A001092AQ900') continue
@@ -255,6 +256,7 @@
         ApiService.post('meta/changes', this.items)
           .then(response => {
             t.$notification.success('Changes saved')
+            t.update()
           }).catch(function (response) {
             t.$notification.error('Failed to save changes: ' + response)
           })

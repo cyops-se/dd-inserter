@@ -195,7 +195,6 @@
       },
 
       save () {
-        console.log('saving emitter: ' + JSON.stringify(this.editedItem))
         this.editedItem.settings = JSON.stringify(this.editedItem.instance)
         delete this.editedItem.instance
         var t = this

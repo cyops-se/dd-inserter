@@ -34,7 +34,18 @@ func GetMetaAll(c *fiber.Ctx) error {
 	if rows, err := emitters.TimescaleDBConn.Query(context.Background(), "select tag_id,name,description,location,type,unit,min,max from measurements.tags"); err == nil {
 		for rows.Next() {
 			item := &types.Meta{}
-			rows.Scan(&item.TagId, &item.Name, &item.Description, &item.Location, &item.Type, &item.Unit, &item.Min, &item.Max)
+			var d, l, t, u *string
+			var min, max *float64
+
+			// Terrible hack to support null values in DB (lib/pq took care of this?)
+			// rows.Scan(&item.TagId, &item.Name, &item.Description, &item.Location, &item.Type, &item.Unit, &item.Min, &item.Max)
+			rows.Scan(&item.TagId, &item.Name, &d, &l, &t, &u, &min, &max)
+			item.Description = stringFromDB(d)
+			item.Location = stringFromDB(l)
+			item.Type = stringFromDB(t)
+			item.Unit = stringFromDB(u)
+			item.Min = float64FromDB(min)
+			item.Max = float64FromDB(max)
 			items = append(items, item)
 			log.Printf("META init of %s", item.Name)
 		}
@@ -118,4 +129,18 @@ func processCSVFile(filename string) ([][]string, error) {
 	}
 
 	return records, nil
+}
+
+func stringFromDB(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
+func float64FromDB(v *float64) float64 {
+	if v == nil {
+		return 0.0
+	}
+	return *v
 }

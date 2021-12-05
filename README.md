@@ -3,6 +3,8 @@
 **cyops-se**: *This application is part of the cyops.se community and use the same language and terminology. If there are acronyms or descriptions here that are unknown or ambiguous, please visit the [documentations](https://github.com/cyops-se/docs) site to see if it is explained there. You are welcome to help us improve the content regardless if you find what you are looking for or not*.
 
 ## Introduction
+**NOTE! In this version, the application is dependent on a TimescaleDB emitter as some meta information like description, location, unit, min, max, is stored there. Please refer to section below on how to set it up for version 0.2.0**
+
 This application (```dd-inserter```) receives one way UDP messages produced by [dd-opcda](https://github.com/cyops-se/dd-opcda) and inserts the data into a timescale database or/and forwards them on the RabbitMQ channel.
 
 Typical usage is as the outer end of a data diode used to replicate real time data from a sensitive system to a potentially hostile network in order to maintain full network isolation of the sensitive network.

@@ -136,7 +136,7 @@ func runDataDispatch() {
 				if _, ok := dp.Value.(float64); ok {
 					value := dp.Value.(float64)
 					entry.Integrator += (entry.StoredValue - value)
-					if math.Abs(entry.Integrator/value) > entry.IntegratingDeadband {
+					if math.Abs(entry.Integrator/entry.StoredValue) > entry.IntegratingDeadband {
 						entry.StoredValue = value
 						entry.Integrator = 0.0
 						entry.LastEmitted = time.Now().UTC()
