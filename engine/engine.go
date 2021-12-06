@@ -118,6 +118,13 @@ func runDataDispatch() {
 		dpLock.Lock()
 		for _, dp := range msg.Points {
 
+			// Filter out empty value with quality zero
+			if dp.Quality == 0 {
+				if v, ok := dp.Value.(float64); ok && v == 0 {
+					continue
+				}
+			}
+
 			entry, ok := datapoints[dp.Name]
 			if !ok {
 				entry = createDataPointEntry(&dp)
