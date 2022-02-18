@@ -31,10 +31,6 @@ var totalUpdated types.VolatileDataPoint
 
 // var sequenceNumber types.VolatileDataPoint
 
-func GetGroups() ([]*interface{}, error) {
-	return nil, nil
-}
-
 func UpdateDataPointMeta(item *types.DataPointMeta) (err error) {
 	return
 }
@@ -72,16 +68,10 @@ func InitDataPointMap() {
 
 	for _, item := range items {
 		if _, ok := datapoints[item.Name]; !ok {
-			vp := &types.VolatileDataPoint{
-				UpdateType:          item.UpdateType,
-				Interval:            item.Interval,
-				IntegratingDeadband: item.IntegratingDeadband}
-
+			vp := &types.VolatileDataPoint{DataPointMeta: &item}
 			datapoints[item.Name] = vp
 		} else {
-			datapoints[item.Name].UpdateType = item.UpdateType
-			datapoints[item.Name].Interval = item.Interval
-			datapoints[item.Name].IntegratingDeadband = item.IntegratingDeadband
+			datapoints[item.Name].DataPointMeta = &item
 		}
 	}
 }
@@ -132,7 +122,7 @@ func runDataDispatch() {
 
 			entry.DataPoint = &dp
 
-			switch updateType := entry.UpdateType; updateType {
+			switch updateType := entry.DataPointMeta.UpdateType; updateType {
 			case types.UpdateTypePassthru:
 				entry.LastEmitted = time.Now().UTC()
 				NewEmitMsg <- dp
@@ -143,7 +133,8 @@ func runDataDispatch() {
 				if _, ok := dp.Value.(float64); ok {
 					value := dp.Value.(float64)
 					entry.Integrator += (entry.StoredValue - value)
-					if math.Abs(entry.Integrator/entry.StoredValue) > entry.IntegratingDeadband {
+					dividend := calculateDivedend(entry, value)
+					if math.Abs(entry.Integrator/dividend) > entry.DataPointMeta.IntegratingDeadband {
 						entry.StoredValue = value
 						entry.Integrator = 0.0
 						entry.LastEmitted = time.Now().UTC()
@@ -153,7 +144,7 @@ func runDataDispatch() {
 				}
 
 			case types.UpdateTypeInterval:
-				if time.Since(entry.LastEmitted) > time.Duration(entry.Interval)*time.Second {
+				if time.Since(entry.LastEmitted) > time.Duration(entry.DataPointMeta.Interval)*time.Second {
 					entry.LastEmitted = time.Now().UTC()
 					NewEmitMsg <- dp
 					totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
@@ -175,6 +166,23 @@ func runDataDispatch() {
 			NewEmitMsg <- *totalUpdated.DataPoint
 		}
 	}
+}
+
+func calculateDivedend(entry *types.VolatileDataPoint, value float64) float64 {
+	if value > entry.DataPointMeta.MaxValue {
+		entry.DataPointMeta.MaxValue = value
+	}
+
+	if value < entry.DataPointMeta.MinValue {
+		entry.DataPointMeta.MinValue = value
+	}
+
+	dividend := entry.DataPointMeta.MaxValue - entry.DataPointMeta.MinValue
+	if dividend == 0.0 {
+		dividend = 0.0001
+	}
+
+	return dividend
 }
 
 func runMetaDispatch() {
@@ -203,11 +211,9 @@ func runMetaDispatch() {
 }
 
 func createDataPointEntry(dp *types.DataPoint) *types.VolatileDataPoint {
-	var lastitem types.DataPointMeta
-	db.DB.Order("id desc").Last(&lastitem)
-	item := &types.DataPointMeta{Name: dp.Name, IntegratingDeadband: 0.3, ID: lastitem.ID + 1}
-	entry := &types.VolatileDataPoint{DataPoint: dp}
+	metaitem := &types.DataPointMeta{Name: dp.Name, IntegratingDeadband: 0.3, MaxValue: 100.0}
+	db.DB.Create(&metaitem)
+	entry := &types.VolatileDataPoint{DataPoint: dp, DataPointMeta: metaitem}
 	datapoints[dp.Name] = entry
-	db.DB.Create(item)
 	return entry
 }

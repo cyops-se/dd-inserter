@@ -5,7 +5,7 @@
   >
     <v-card-title class="align-start">
       <v-sheet
-        color="info"
+        :color="color"
         width="100%"
         class="overflow-hidden mt-n9 transition-swing v-card--material__sheet"
         elevation="6"
@@ -70,7 +70,6 @@
 </template>
 
 <script>
-  import ApiService from '@/services/api.service'
   import WebsocketService from '@/services/websocket.service'
   export default {
     name: 'MaterialEmitterCard',
@@ -91,52 +90,37 @@
     data: () => ({
       copy: {},
       timer: null,
+      color: 'success',
     }),
 
     created () {
       var t = this
+      this.resetTimer()
       WebsocketService.topic('data.point', function (topic, message) {
         // t.emitter.count = JSON.stringify(message)
         if (message.n === 'Total Received') {
           t.emitter.count = message.v
           t.emitter.lastrun = message.t
+          t.color = 'success'
+          t.resetTimer()
         }
         if (message.n === 'Sequence Number') {
           t.emitter.seqno = message.v
           t.emitter.lastrun = message.t
+          t.color = 'success'
+          t.resetTimer()
         }
       })
     },
 
     methods: {
-      startStop () {
-        var action = this.copy.status === 1 ? 'stop' : 'start'
-        ApiService.get('opc/group/' + action + '/' + this.group.ID)
-          .then(response => {
-            this.$notification.success('Collection of group tags ' + (this.copy.status === 1 ? 'stopped' : 'started'))
-            this.copy.status = this.copy.status === 1 ? 0 : 1
-            if (this.copy.status === 1) {
-              if (!this.timer) {
-                clearInterval(this.timer)
-                this.timer = setInterval(this.refresh, this.copy.interval * 1000)
-              }
-            } else {
-              clearInterval(this.timer)
-              this.timer = null
-            }
-          }).catch(response => {
-            console.log('ERROR response: ' + response.message)
-            this.$notification.error('Failed to start collection of group tags: ' + response.message)
-          })
+      resetTimer () {
+        clearInterval(this.timer)
+        this.timer = setInterval(this.invalidate, 10000)
       },
 
-      refresh () {
-        ApiService.get('opc/group/' + this.group.ID)
-          .then(response => {
-            this.copy = response.data
-          }).catch(response => {
-            console.log('ERROR response (refresh): ' + response.message)
-          })
+      invalidate () {
+        this.color = 'error'
       },
     },
   }

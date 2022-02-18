@@ -47,7 +47,6 @@ func GetMetaAll(c *fiber.Ctx) error {
 			item.Min = float64FromDB(min)
 			item.Max = float64FromDB(max)
 			items = append(items, item)
-			log.Printf("META init of %s", item.Name)
 		}
 
 		if rows.Err() != nil {

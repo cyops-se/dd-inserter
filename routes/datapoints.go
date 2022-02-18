@@ -12,9 +12,9 @@ import (
 
 func RegisterProxyRoutes(api fiber.Router) {
 
-	api.Get("/proxy/group", GetGroups)
 	api.Get("/proxy/point", GetDataPoints)
 	api.Put("/proxy/point", UpdateDataPoint)
+	api.Post("/proxy/points", UpdateDataPoints)
 	api.Delete("/proxy/point/:id", DeleteDataPoint)
 }
 
@@ -32,13 +32,6 @@ func handleError(c *fiber.Ctx, err error) error {
 	return c.Status(400).JSON(&fiber.Map{"error": err.Error()})
 }
 
-// GROUPS
-
-func GetGroups(c *fiber.Ctx) (err error) {
-	items, _ := engine.GetGroups()
-	return c.Status(http.StatusOK).JSON(items)
-}
-
 // DATA POINTS
 
 func GetDataPoints(c *fiber.Ctx) (err error) {
@@ -53,7 +46,6 @@ func GetDataPoints(c *fiber.Ctx) (err error) {
 func UpdateDataPoint(c *fiber.Ctx) (err error) {
 	var item types.DataPointMeta
 	if err = c.BodyParser(&item); err == nil {
-		log.Println("Updating datapoint meta", item)
 		if err = db.DB.Updates(&item).Error; err != nil {
 			return handleError(c, err)
 		}
@@ -63,6 +55,28 @@ func UpdateDataPoint(c *fiber.Ctx) (err error) {
 
 	engine.InitDataPointMap()
 	return c.Status(200).JSON(&fiber.Map{"item": item})
+}
+
+func UpdateDataPoints(c *fiber.Ctx) (err error) {
+	var items []types.DataPointMeta
+	failedcount := 0
+	if err = c.BodyParser(&items); err == nil {
+		for _, item := range items {
+			if err = db.DB.Updates(&item).Error; err != nil {
+				log.Printf("Failed to save item: %#v, error: %s", item, err.Error())
+				failedcount++
+			}
+		}
+	} else {
+		log.Printf("Failed to parse body, error: %s", err.Error())
+	}
+
+	engine.InitDataPointMap()
+	if failedcount > 0 || err != nil {
+		return c.Status(500).JSON(&fiber.Map{"items": items, "err": err, "failedcount": failedcount})
+	}
+
+	return c.Status(200).JSON(&fiber.Map{"items": items})
 }
 
 func DeleteDataPoint(c *fiber.Ctx) (err error) {

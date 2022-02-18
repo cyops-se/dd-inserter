@@ -137,11 +137,11 @@
           text: 'Emitters',
           to: '/pages/emitters',
         },
-        {
-          icon: 'mdi-tag-multiple',
-          text: 'Tags meta',
-          to: '/pages/importmeta',
-        },
+        // {
+        //   icon: 'mdi-tag-multiple',
+        //   text: 'Tags meta',
+        //   to: '/pages/importmeta',
+        // },
         {
           icon: 'mdi-tag-multiple',
           text: 'Tags',

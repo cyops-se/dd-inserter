@@ -3,7 +3,7 @@ package routes
 import (
 	"fmt"
 	"log"
-	"time"
+	"net/http"
 
 	"github.com/cyops-se/dd-inserter/db"
 	"github.com/cyops-se/dd-inserter/types"
@@ -19,9 +19,7 @@ func RegisterAuthRoutes(api fiber.Router) {
 }
 
 func verifyToken(c *fiber.Ctx) error {
-	// c.JSON(http.StatusOK, fiber.Map{"status": "ok"})
-	c.Status(200)
-	c.JSON(fiber.Map{"status": "ok"})
+	c.Status(http.StatusOK).JSON(fiber.Map{"status": "ok"})
 	return nil
 }
 
@@ -49,7 +47,7 @@ func login(c *fiber.Ctx) error {
 	claims["name"] = user.FullName
 	claims["email"] = user.UserName
 	claims["id"] = user.ID
-	claims["exp"] = time.Now().Add(time.Hour * 72).Unix()
+	claims["exp"] = 0 // time.Now().Add(time.Hour * 72).Unix()
 
 	// Generate encoded token and send it as response.
 	t, err := token.SignedString([]byte("897puihjöknawerthgfp7<yvalknp98h"))

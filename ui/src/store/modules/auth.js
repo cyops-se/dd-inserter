@@ -56,6 +56,7 @@ const actions = {
     }
   },
   [LOGOUT] (context) {
+    console.log('logging out ...')
     context.commit(PURGE_AUTH)
   },
   [REGISTER] (context, credentials) {

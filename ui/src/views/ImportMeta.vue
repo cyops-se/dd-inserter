@@ -204,7 +204,6 @@
           var max = parseFloat(record[4])
           var unit = record[5]
 
-
           if (inuse !== 'x') continue
           // if (tagname !== 'A001092AQ900') continue
 

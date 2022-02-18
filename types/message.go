@@ -35,26 +35,22 @@ type DataMessage struct {
 }
 
 type DataPointMeta struct {
-	ID                  uint      `json:"id"`
-	Name                string    `json:"name" gorm:"primaryKey"`
-	Description         string    `json:"description"`
-	EngUnit             string    `json:"engunit"`
-	MinValue            string    `json:"minvalue"`
-	MaxValue            string    `json:"maxvalue"`
-	Quantity            string    `json:"quantity"`
-	UpdateType          int       `json:"updatetype"` // 0 = pass thru, 1 = interval, 2 = integrating deadband
-	Interval            int       `json:"interval"`
-	Integrator          float64   `json:"integrator"`
-	IntegratingDeadband float64   `json:"integratingdeadband"`
-	LastEmitted         time.Time `json:"lastemitted"`
+	ID                  uint    `json:"id" gorm:"autoincrement"`
+	Name                string  `json:"name" gorm:"unique;index"`
+	Description         string  `json:"description"`
+	EngUnit             string  `json:"engunit"`
+	MinValue            float64 `json:"min"`
+	MaxValue            float64 `json:"max"`
+	Quantity            string  `json:"quantity"`
+	UpdateType          int     `json:"updatetype"` // 0 = pass thru, 1 = interval, 2 = integrating deadband
+	Interval            int     `json:"interval"`
+	IntegratingDeadband float64 `json:"integratingdeadband"`
 }
 
 type VolatileDataPoint struct {
-	DataPoint           *DataPoint `json:"datapoint"`
-	StoredValue         float64    `json:"storedvalue"` // only used for the integrating deadband (floating data points)
-	Integrator          float64    `json:"integrator"`
-	LastEmitted         time.Time  `json:"lastemitted"`
-	UpdateType          int        `json:"updatetype"` // 0 = pass thru, 1 = interval, 2 = integrating deadband
-	Interval            int        `json:"interval"`
-	IntegratingDeadband float64    `json:"integratingdeadband"`
+	DataPoint     *DataPoint     `json:"datapoint"`
+	DataPointMeta *DataPointMeta `json:"datapointmeta"`
+	StoredValue   float64        `json:"storedvalue"` // only used for the integrating deadband (floating data points)
+	Integrator    float64        `json:"integrator"`
+	LastEmitted   time.Time      `json:"lastemitted"`
 }

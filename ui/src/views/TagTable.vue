@@ -1,9 +1,16 @@
 <template>
   <div>
+    <file-drop
+      :dialog.sync="uploadDialog"
+      :multiple="false"
+      @filesUploaded="processUpload($event)"
+    />
     <v-data-table
+      v-model="selected"
       :headers="headers"
       :items="items"
       :search="search"
+      show-select
       class="elevation-1"
     >
       <template v-slot:top>
@@ -25,6 +32,36 @@
             hide-details
             clearable
           />
+          <v-btn
+            color="secondary"
+            class="ml-2"
+            :disabled="selected.length === 0"
+            @click="editSelectedItems"
+          >
+            Edit selected
+          </v-btn>
+          <v-btn
+            color="primary"
+            class="ml-2"
+            @click="exportCSV"
+          >
+            Export
+          </v-btn>
+          <v-btn
+            color="primary"
+            class="ml-2"
+            @click="uploadDialog = !uploadDialog"
+          >
+            Import
+          </v-btn>
+          <v-btn
+            color="success"
+            class="ml-2"
+            :disabled="saveChangedDisabled"
+            @click="saveChanged"
+          >
+            Save changes
+          </v-btn>
           <v-dialog
             v-model="dialog"
             max-width="500px"
@@ -41,10 +78,43 @@
                       cols="12"
                     >
                       <v-text-field
+                        v-if="editedIndex != -2"
                         v-model="editedItem.name"
                         label="Name"
                         hide-details
                         readonly
+                      />
+                    </v-col>
+                  </v-row>
+                  <v-row>
+                    <v-col
+                      cols="4"
+                    >
+                      <v-text-field
+                        v-model.number="editedItem.min"
+                        label="Min"
+                        hide-details
+                        outlined
+                      />
+                    </v-col>
+                    <v-col
+                      cols="4"
+                    >
+                      <v-text-field
+                        v-model.number="editedItem.max"
+                        label="Max"
+                        hide-details
+                        outlined
+                      />
+                    </v-col>
+                    <v-col
+                      cols="4"
+                    >
+                      <v-text-field
+                        v-model.number="editedItem.engunit"
+                        label="Engineering Unit"
+                        hide-details
+                        outlined
                       />
                     </v-col>
                   </v-row>
@@ -55,8 +125,6 @@
                       <v-combobox
                         v-model="editedItem.ut"
                         :items="availableUpdateTypes"
-                        item-text="name"
-                        item-value="value"
                         label="Update Type"
                         hide-details
                         outlined
@@ -68,14 +136,14 @@
                       cols="12"
                     >
                       <v-text-field
-                        v-if="editedItem.ut.value == 1"
+                        v-if="editedItem.ut === 'Interval'"
                         v-model.number="editedItem.interval"
                         label="Interval"
                         hide-details
                         outlined
                       />
                       <v-text-field
-                        v-if="editedItem.ut.value == 2"
+                        v-if="editedItem.ut === 'Deadband'"
                         v-model.number="editedItem.integratingdeadband"
                         label="Integrating Deadband"
                         hide-details
@@ -134,8 +202,12 @@
     data: () => ({
       dialog: false,
       dialogDelete: false,
+      uploadDialog: false,
       search: '',
       loading: false,
+      saveSelectedDisabled: true,
+      saveChangedDisabled: true,
+      content: '',
       headers: [
         {
           text: 'ID',
@@ -144,40 +216,42 @@
           value: 'id',
           width: 75,
         },
-        { text: 'Name', value: 'name', width: '60%' },
-        { text: 'Update Type', value: 'updatetype', width: '15%' },
-        { text: 'Interval', value: 'interval', width: '10%' },
-        { text: 'Integrating Deadband', value: 'integratingdeadband', width: '20%' },
+        { text: 'Name', value: 'name', width: '20%' },
+        { text: 'Description', value: 'description', width: '40%' },
+        { text: 'Update Type', value: 'updatetype', width: '5%' },
+        { text: 'Interval', value: 'interval', width: '5%' },
+        { text: 'Integrating Deadband', value: 'integratingdeadband', width: '5%' },
+        { text: 'Min', value: 'min', width: '5%' },
+        { text: 'Max', value: 'max', width: '5%' },
+        { text: 'Unit', value: 'engunit', width: '5%' },
         { text: 'Actions', value: 'actions', width: 1, sortable: false },
       ],
       items: [],
       editedIndex: -1,
       editedItem: {
-        fullname: '',
-        email: '',
-        ut: { value: 0, name: '' },
+        ut: '',
+        interval: 0,
+        integratingdeadband: 0.3,
+        min: 0,
+        max: 100,
+        engunit: '',
       },
       defaultItem: {
-        fullname: '',
-        email: '',
-        ut: { value: 0, name: '' },
+        ut: '',
+        interval: 0,
+        integratingdeadband: 0.3,
+        min: 0,
+        max: 100,
+        engunit: '',
       },
-      availableUpdateTypes: [{ value: 0, name: 'Pass thru' }, { value: 1, name: 'Interval' }, { value: 2, name: 'Deadband' }, { value: 3, name: 'Disabled' }],
+      availableUpdateTypes: ['Pass thru', 'Interval', 'Deadband', 'Disabled'],
       groups: [],
       groupsTable: {},
       message: 'kalle',
+      selected: [],
     }),
 
     created () {
-      this.loading = true
-      ApiService.get('proxy/point')
-        .then(response => {
-          this.items = response.data
-          this.loading = false
-        }).catch(response => {
-          console.log('ERROR response: ' + JSON.stringify(response))
-        })
-
       var t = this
       WebsocketService.topic('data.point', function (topic, message) {
         t.message = JSON.stringify(message)
@@ -185,16 +259,31 @@
       WebsocketService.topic('meta.message', function (topic, message) {
         // t.message = JSON.stringify(message)
       })
+
+      this.refresh()
     },
 
     methods: {
-      initialize () {},
+      refresh () {
+        ApiService.get('proxy/point')
+          .then(response => {
+            this.items = response.data
+          }).catch(response => {
+            console.log('ERROR response: ' + JSON.stringify(response))
+          })
+      },
 
       editItem (item) {
         this.editedIndex = this.items.indexOf(item)
         this.editedItem = Object.assign({}, item)
         this.editedItem.ut = this.availableUpdateTypes[this.editedItem.updatetype]
         console.log('editing item: ' + JSON.stringify(this.editedItem))
+        this.dialog = true
+      },
+
+      editSelectedItems () {
+        this.editedIndex = -2
+        this.editedItem = Object.assign({}, this.defaultItem)
         this.dialog = true
       },
 
@@ -218,18 +307,162 @@
         })
       },
 
+      updateType (typename) {
+        for (var i = 0; i < this.availableUpdateTypes.length; i++) {
+          if (typename === this.availableUpdateTypes[i]) return i
+        }
+        return 0
+      },
+
       save () {
         if (this.editedIndex > -1) {
-          this.editedItem.updatetype = this.editedItem.ut.value
+          this.editedItem.updatetype = this.updateType(this.editedItem.ut)
           Object.assign(this.items[this.editedIndex], this.editedItem)
           ApiService.put('proxy/point', this.editedItem)
             .then(response => {
-              this.$notification.success('Point ' + response.data.item.name + ' successfully updated!')
+              this.$notification.success(response.data.item.name + ' successfully updated!')
             }).catch(response => {
               this.$notification.error('Failed to update point!' + response)
             })
+        } else if (this.selected.length > 0) {
+          for (var i = 0; i < this.selected.length; i++) {
+            this.selected[i].updatetype = this.updateType(this.editedItem.ut)
+            this.selected[i].interval = this.editedItem.interval
+            this.selected[i].integratingdeadband = this.editedItem.integratingdeadband
+            this.selected[i].min = this.editedItem.min
+            this.selected[i].max = this.editedItem.max
+            this.selected[i].engunit = this.editedItem.engunit
+            console.log('saving item: ' + JSON.stringify(this.selected[i]))
+            ApiService.put('proxy/point', this.selected[i])
+              .then(response => {
+                this.$notification.success(response.data.item.name + ' successfully updated!')
+              }).catch(response => {
+                this.$notification.error('Failed to update point!' + response)
+              })
+          }
+          console.log('saving items ...')
         }
         this.close()
+      },
+
+      exportCSV () {
+        let csvContent = 'data:text/csv;charset=utf-8,'
+
+        csvContent += [
+          'inuse;name;description;min;max;unit;type;interval;integratingdeadband;',
+          ...this.items.map(item => 'x;' + item.name + ';' + item.description + ';' + parseFloat(item.min) + ';' + parseFloat(item.max) + ';' + item.engunit + ';' + parseInt(item.updatetype) + ';' + parseInt(item.interval) + ';' + parseFloat(item.integratingdeadband) + ';'),
+        ]
+          .join('\n')
+          .replace(/(^\[)|(\]$)/gm, '')
+
+        const data = encodeURI(csvContent)
+        const link = document.createElement('a')
+        link.setAttribute('href', data)
+        link.setAttribute('download', 'export.csv')
+        link.click()
+      },
+
+      processUpload (files) {
+        var reader = new FileReader()
+        var t = this
+        reader.onload = function (event) {
+          var j = t.csvJSON(event.target.result)
+          t.content = j
+          t.processResponse(j)
+        }
+        reader.readAsText(files[0])
+      },
+
+      processResponse (records) {
+        // iterate through all existing items and compare content
+        // assume the following column format:
+        // col 0: x indicates in use
+        // col 1: tag name
+        // col 2: tag description
+        // col 3: tag min value
+        // col 4: tag max value
+        // col 5: tag unit
+        // col 6: update type (0 = pass thru, 1 = interval, 2 = integrating deadband, 3 = disabled)
+        // col 7: interval value
+        // col 8: integrating deadband value
+
+        for (var mi = 0; mi < records.length; mi++) {
+          var record = records[mi]
+          var inuse = record[0]
+          var tagname = record[1]
+          var description = record[2]
+          var min = parseFloat(record[3])
+          var max = parseFloat(record[4])
+          var engunit = record[5]
+          var updatetype = parseInt(record[6])
+          var interval = parseInt(record[7])
+          var integratingdeadband = parseFloat(record[8])
+
+          if (inuse !== 'x') continue
+          // if (tagname !== 'A001092AQ900') continue
+
+          for (var i = 0; i < this.items.length; i++) {
+            var item = this.items[i]
+
+            if (item.name.indexOf(tagname) === -1) continue
+            var same = item.description === description
+            if (same) same = item.engunit === engunit
+            if (same) same &= item.min === min
+            if (same) same &= item.max === max
+            if (same) same &= item.updatetype === updatetype
+            if (same && updatetype === 1) same &= item.interval === interval
+            if (same && updatetype === 2) same &= item.integratingdeadband === integratingdeadband
+
+            if (!same) {
+              item.description = description
+              item.engunit = engunit
+              item.min = min
+              item.max = max
+              item.updatetype = updatetype
+              if (updatetype === 1) item.interval = interval
+              if (updatetype === 2) item.integratingdeadband = integratingdeadband
+              item.changed = true
+            } else {
+              item.changed = false
+            }
+            break
+          }
+        }
+
+        // console.log('all items: ' + JSON.stringify(this.items))
+        // keep changed items in the table
+        this.items = this.items.filter(item => item?.changed === true || false)
+
+        // console.log('changed items: ' + JSON.stringify(this.items))
+
+        if (this.items.length > 0) this.saveChangedDisabled = false
+      },
+
+      csvJSON (csv) {
+        var lines = csv.split('\n')
+        var result = []
+
+        lines.map((line, indexLine) => {
+          if (indexLine < 1) return // Skip header line
+          var currentline = line.split(';')
+          result.push(currentline)
+        })
+
+        // result.pop() // remove the last item because undefined values
+        return result // JavaScript object
+      },
+
+      saveChanged () {
+        this.saveChangedDisabled = true
+        var t = this
+        ApiService.post('proxy/points', this.items)
+          .then(response => {
+            t.$notification.success('Changes saved')
+            t.refresh()
+          }).catch(function (response) {
+            t.$notification.error('Failed to save changes: ' + response)
+          })
+        console.log('save changes from import ...')
       },
     },
   }

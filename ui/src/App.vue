@@ -29,7 +29,7 @@
 
     created () {
       console.log('connecting web socket ...')
-      WebsocketService.connect()
+      WebsocketService.connect(this.onclose)
 
       ApiService.get('system/info')
         .then(response => {
@@ -37,6 +37,12 @@
         }).catch(response => {
           console.log('ERROR response: ' + JSON.stringify(response))
         })
+    },
+
+    methods: {
+      onclose () {
+        WebsocketService.connect(this.onclose)
+      },
     },
   }
 </script>
