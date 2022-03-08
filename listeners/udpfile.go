@@ -1,4 +1,4 @@
-package engine
+package listeners
 
 import (
 	"bytes"
@@ -12,6 +12,8 @@ import (
 	"os"
 	"path"
 	"time"
+
+	"github.com/cyops-se/dd-inserter/types"
 )
 
 type header struct {
@@ -28,17 +30,21 @@ type context struct {
 	faildir       string
 }
 
-func InitFileTransfer() {
-	ctx := initContext()
-	log.Println("RECEIVER")
-	go listenForIncoming(ctx)
+type UDPFileListener struct {
+	Port int `json:"port"`
 }
 
-func initContext() *context {
+func (listener *UDPFileListener) InitListener(gctx *types.Context) (err error) {
+	ctx := initContext(gctx)
+	go listenForIncoming(ctx)
+	return err
+}
+
+func initContext(gctx *types.Context) *context {
 	ctx := &context{basedir: "incoming", processingdir: "processing", donedir: "done", faildir: "failed"}
-	os.MkdirAll(path.Join(ctx.basedir, ctx.processingdir), 0755)
-	os.MkdirAll(path.Join(ctx.basedir, ctx.donedir), 0755)
-	os.MkdirAll(path.Join(ctx.basedir, ctx.faildir), 0755)
+	os.MkdirAll(path.Join(gctx.Wdir, ctx.basedir, ctx.processingdir), 0755)
+	os.MkdirAll(path.Join(gctx.Wdir, ctx.basedir, ctx.donedir), 0755)
+	os.MkdirAll(path.Join(gctx.Wdir, ctx.basedir, ctx.faildir), 0755)
 	return ctx
 }
 

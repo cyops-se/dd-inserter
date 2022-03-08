@@ -17,9 +17,9 @@ type UDPDataListener struct {
 	Port int `json:"port"`
 }
 
-func (listener *UDPDataListener) InitListener() {
-	listeners = append(listeners, listener)
+func (listener *UDPDataListener) InitListener(ctx *types.Context) (err error) {
 	go listener.run()
+	return err
 }
 
 func (listener *UDPDataListener) run() {

@@ -17,16 +17,11 @@ import (
 	"github.com/cyops-se/dd-inserter/engine"
 	"github.com/cyops-se/dd-inserter/listeners"
 	"github.com/cyops-se/dd-inserter/routes"
+	"github.com/cyops-se/dd-inserter/types"
 	"golang.org/x/sys/windows/svc"
 )
 
-type Context struct {
-	cmd     string
-	trace   bool
-	version bool
-}
-
-var ctx Context
+var ctx types.Context
 var GitVersion string
 var GitCommit string
 
@@ -34,27 +29,28 @@ func main() {
 	defer handlePanic()
 	svcName := "dd-inserter"
 
-	flag.StringVar(&ctx.cmd, "cmd", "debug", "Windows service command (try 'usage' for more info)")
-	flag.BoolVar(&ctx.trace, "trace", false, "Prints traces of OCP data to the console")
-	flag.BoolVar(&ctx.version, "v", false, "Prints the commit hash and exists")
+	flag.StringVar(&ctx.Cmd, "cmd", "debug", "Windows service command (try 'usage' for more info)")
+	flag.StringVar(&ctx.Wdir, "workdir", ".", "Specifies working directory for process (useful when running as service)")
+	flag.BoolVar(&ctx.Trace, "trace", false, "Prints traces of OCP data to the console")
+	flag.BoolVar(&ctx.Version, "v", false, "Prints the commit hash and exists")
 	flag.Parse()
 
 	routes.SysInfo.GitVersion = GitVersion
 	routes.SysInfo.GitCommit = GitCommit
 
-	if ctx.version {
+	if ctx.Version {
 		fmt.Printf("dd-inserter version %s, commit: %s\n", routes.SysInfo.GitVersion, routes.SysInfo.GitCommit)
 		return
 	}
 
-	if ctx.cmd == "install" {
+	if ctx.Cmd == "install" {
 		if err := installService(svcName, "dd-inserter from cyops-se"); err != nil {
-			log.Fatalf("failed to %s %s: %v", ctx.cmd, svcName, err)
+			log.Fatalf("failed to %s %s: %v", ctx.Cmd, svcName, err)
 		}
 		return
-	} else if ctx.cmd == "remove" {
+	} else if ctx.Cmd == "remove" {
 		if err := removeService(svcName); err != nil {
-			log.Fatalf("failed to %s %s: %v", ctx.cmd, svcName, err)
+			log.Fatalf("failed to %s %s: %v", ctx.Cmd, svcName, err)
 		}
 		return
 	}
@@ -74,19 +70,24 @@ func main() {
 func runEngine() {
 	defer handlePanic()
 
-	db.ConnectDatabase()
+	db.ConnectDatabase(ctx)
 	db.InitContent()
 
-	listeners.RegisterType(&listeners.UDPDataListener{})
-	listeners.RegisterType(&listeners.UDPMetaListener{})
-	listeners.Init()
+	listeners.RegisterType("NatsData", listeners.NATSDataListener{})
+	listeners.RegisterType("NatsFile", listeners.NATSFileListener{})
+	listeners.RegisterType("UdpData", listeners.UDPDataListener{})
+	listeners.RegisterType("UdpMeta", listeners.UDPMetaListener{})
+	listeners.RegisterType("UdpFile", listeners.UDPFileListener{})
+	listeners.RegisterType("Cache", listeners.CacherListener{})
+	// listeners.Init(ctx)
+	listeners.LoadListeners(ctx)
 
 	emitters.RegisterType("TimescaleDB", emitters.TimescaleEmitter{})
 	emitters.RegisterType("RabbitMQ", emitters.RabbitMQEmitter{})
 	emitters.LoadEmitters()
 
 	engine.InitDispatchers()
-	engine.InitFileTransfer()
+	// engine.InitFileTransfer(ctx)
 	engine.InitMonitor()
 
 	go RunWeb()

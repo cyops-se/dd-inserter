@@ -36,12 +36,12 @@ func NewEmitter(c *fiber.Ctx) error {
 	typename := c.Params("type")
 	item, err := emitters.CreateEmitter(typename)
 	if err != nil {
-		db.Log("error", fmt.Sprintf("Failed to create emitter type", typename), err.Error())
+		db.Log("error", fmt.Sprintf("Failed to create emitter type: %s", typename), err.Error())
 		return c.Status(503).SendString(err.Error())
 	}
 
 	if err := c.BodyParser(&item); err != nil {
-		db.Log("error", fmt.Sprintf("Failed to map provided data to emitter type", typename), err.Error())
+		db.Log("error", fmt.Sprintf("Failed to map provided data to emitter type: %s", typename), err.Error())
 		return c.Status(503).SendString(err.Error())
 	}
 

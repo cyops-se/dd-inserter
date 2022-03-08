@@ -20,9 +20,9 @@ type CacherListener struct {
 	Port int `json:"port"`
 }
 
-func (listener *CacherListener) InitListener() {
-	listeners = append(listeners, listener)
+func (listener *CacherListener) InitListener(ctx *types.Context) (err error) {
 	go listener.run()
+	return err
 }
 
 func (listener *CacherListener) run() {

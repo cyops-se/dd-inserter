@@ -2,6 +2,7 @@ package db
 
 import (
 	"log"
+	"path"
 
 	"github.com/cyops-se/dd-inserter/types"
 	"gorm.io/driver/sqlite"
@@ -10,8 +11,9 @@ import (
 
 var DB *gorm.DB
 
-func ConnectDatabase() {
-	database, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
+func ConnectDatabase(ctx types.Context) {
+	filename := path.Join(ctx.Wdir, "test.db")
+	database, err := gorm.Open(sqlite.Open(filename), &gorm.Config{})
 	// dsn := "user=dev password=hemligt dbname=dev host=localhost port=5432"
 	// database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {

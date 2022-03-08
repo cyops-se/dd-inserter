@@ -12,6 +12,7 @@ import (
 	"github.com/cyops-se/dd-inserter/types"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 type TimescaleEmitter struct {
@@ -31,7 +32,7 @@ type TimescaleEmitter struct {
 var debug *bool
 var batchSize *int
 
-var TimescaleDBConn *pgx.Conn
+var TimescaleDBConn *pgxpool.Pool
 var ids map[string]int
 
 func (emitter *TimescaleEmitter) InitEmitter() error {
@@ -119,7 +120,7 @@ func (emitter *TimescaleEmitter) connectdb() error {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		emitter.Host, emitter.Port, emitter.User, emitter.Password, emitter.Database)
 	// dburl := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", emitter.User, emitter.Password, emitter.Host, emitter.Database)
-	TimescaleDBConn, emitter.err = pgx.Connect(context.Background(), psqlInfo)
+	TimescaleDBConn, emitter.err = pgxpool.Connect(context.Background(), psqlInfo)
 	if emitter.err != nil {
 		db.Log("error", "TimescaleDB emitter", fmt.Sprintf("Failed to connect to the database, err: %s", emitter.err.Error()))
 		return emitter.err

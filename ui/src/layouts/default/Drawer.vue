@@ -134,6 +134,11 @@
         },
         {
           icon: 'mdi-antenna',
+          text: 'Listeners',
+          to: '/pages/listeners',
+        },
+        {
+          icon: 'mdi-antenna',
           text: 'Emitters',
           to: '/pages/emitters',
         },

@@ -8,7 +8,7 @@
       <v-toolbar
         flat
       >
-        <v-toolbar-title>Groups</v-toolbar-title>
+        <v-toolbar-title>Listeners</v-toolbar-title>
         <v-divider
           class="mx-4"
           inset
@@ -27,18 +27,18 @@
               v-bind="attrs"
               v-on="on"
             >
-              New Group
+              New Listener
             </v-btn>
           </template>
           <v-card>
             <v-card-title>
-              <span class="text-h5">Group</span>
+              <span class="text-h5">New Listener</span>
             </v-card-title>
 
             <v-card-text>
               <v-container>
                 <v-row>
-                  <v-col cols="6">
+                  <v-col cols="12">
                     <v-text-field
                       v-model="editedItem.name"
                       label="Name"
@@ -46,57 +46,20 @@
                       hide-details
                     />
                   </v-col>
-                  <v-col cols="6">
-                    <v-text-field
-                      v-model.number="editedItem.interval"
-                      label="Sampling Interval"
-                      type="number"
-                      outlined
-                      hide-details
-                    />
-                  </v-col>
                   <v-col cols="12">
                     <v-combobox
-                      v-model="editedItem.progid"
-                      :items="availableProgids"
-                      label="Server ProgID"
+                      v-model="editedItem.type"
+                      :items="availableTypeNames"
+                      label="Listener types"
                       outlined
                       hide-details
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-checkbox
-                      v-model="editedItem.runatstart"
-                      label="Start automatically"
-                      hide-details
-                      class="mt-n3"
-                      :value="editedItem ? editedItem.runatstart : true"
-                    />
-                  </v-col>
-                  <v-col cols="8">
-                    <v-text-field
-                      v-model.number="editedItem.targetip"
-                      label="Target IP (data diode)"
-                      outlined
-                      hide-details
-                    />
-                  </v-col>
-                  <v-col cols="4">
-                    <v-text-field
-                      v-model.number="editedItem.targetport"
-                      label="Target Port"
-                      outlined
-                      hide-details
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-textarea
-                      v-model="editedItem.description"
-                      label="Description"
-                      outlined
                     />
                   </v-col>
                 </v-row>
+                <nats-data-listener-edit
+                  v-if="editedItem.type == 'NatsData'"
+                  :item="editedItem"
+                />
               </v-container>
             </v-card-text>
 
@@ -141,7 +104,7 @@
   import ApiService from '@/services/api.service'
 
   export default {
-    name: 'ListenerTableView',
+    name: 'ListenerTable',
 
     data: () => ({
       dialog: false,
@@ -153,45 +116,46 @@
           text: 'ID',
           align: 'start',
           filterable: false,
-          value: 'id',
+          value: 'ID',
           width: 75,
         },
         { text: 'Name', value: 'name', width: '20%' },
-        { text: 'Description', value: 'description', width: '60%' },
-        { text: 'Sampling Interval (seconds)', value: 'interval', width: '10%' },
+        { text: 'Type', value: 'type', width: '20%' },
+        { text: 'Settings', value: 'settings', width: '60%' },
         { text: 'Actions', value: 'actions', width: 1, sortable: false },
       ],
       items: [],
-      availableProgids: [],
+      availableTypeNames: [],
       editedIndex: -1,
       editedItem: {},
       defaultItem: {
-        fullname: '',
-        email: '',
-        runatstart: true,
-        targetip: '192.168.0.174',
-        targetport: 4357,
+        instance: {
+          url: '',
+          subject: '',
+        },
       },
+      urls: [],
     }),
 
     created () {
       this.loading = true
       this.editedItem = Object.assign({}, this.defaultItem)
       this.editedIndex = -1
-      ApiService.get('data/opc_groups')
+      ApiService.get('listener')
         .then(response => {
-          this.items = response.data
+          console.log('listeners: ' + JSON.stringify(response.data))
+          this.items = response.data || []
           this.loading = false
         }).catch(response => {
           console.log('ERROR response: ' + JSON.stringify(response))
         })
 
-      ApiService.get('opc/server')
+      ApiService.get('listener/types')
         .then(response => {
           for (var i = 0; i < response.data.length; i++) {
-            this.availableProgids.push(response.data[i].progid)
+            this.availableTypeNames.push(response.data[i])
           }
-          console.log('available progids: ' + this.availableProgids)
+          console.log('available types: ' + this.availableTypeNames)
         }).catch(response => {
           console.log('ERROR response: ' + JSON.stringify(response))
         })
@@ -207,12 +171,12 @@
       },
 
       deleteItem (item) {
-        ApiService.delete('data/opc_groups/' + item.ID)
+        ApiService.delete('data/listeners/' + item.ID)
           .then(response => {
             for (var i = 0; i < this.items.length; i++) {
               if (this.items[i].ID === item.ID) this.items.splice(i, 1)
             }
-            this.$notification.success('Group deleted')
+            this.$notification.success('Listener deleted')
           }).catch(response => {
             console.log('ERROR response: ' + response.message)
           })
@@ -227,23 +191,26 @@
       },
 
       save () {
+        this.editedItem.settings = JSON.stringify(this.editedItem.instance)
+        delete this.editedItem.instance
+        var t = this
         if (this.editedIndex > -1) {
           Object.assign(this.items[this.editedIndex], this.editedItem)
-          ApiService.put('data/opc_groups', this.editedItem)
+          ApiService.put('listener/' + this.editedItem.ID, this.editedItem)
             .then(response => {
-              this.$notification.success('Group updated!')
+              t.$notification.success('Listener updated!')
             }).catch(function (response) {
-              console.log('Failed to update group! ' + response)
-              this.$notification.error('Failed to update group!' + response)
+              console.log('Failed to update listener! ' + response)
+              t.$notification.error('Failed to update listener!' + response)
             })
         } else {
-          ApiService.post('data/opc_groups', this.editedItem)
+          ApiService.post('listener/' + this.editedItem.type, this.editedItem)
             .then(response => {
-              this.$notification.success('Group created!')
-              this.items.push(response.data)
+              t.$notification.success('Listener created!')
+              t.items.push(response.data)
             }).catch(function (response) {
-              console.log('Failed to create group! ' + response.message)
-              this.$notification.error('Failed to create group!' + response)
+              console.log('Failed to create listener! ' + response.message)
+              t.$notification.error('Failed to create listener!' + response)
             })
         }
         this.editedItem = Object.assign({}, this.defaultItem)

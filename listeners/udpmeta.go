@@ -14,9 +14,9 @@ type UDPMetaListener struct {
 	Port int `json:"port"`
 }
 
-func (listener *UDPMetaListener) InitListener() {
-	listeners = append(listeners, listener)
+func (listener *UDPMetaListener) InitListener(ctx *types.Context) (err error) {
 	go listener.run()
+	return err
 }
 
 func (listener *UDPMetaListener) run() {

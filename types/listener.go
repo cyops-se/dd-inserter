@@ -1,9 +1,11 @@
 package types
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+)
 
 type IListener interface {
-	InitListener()
+	InitListener(ctx *Context) error
 }
 
 type Listener struct {
@@ -12,5 +14,5 @@ type Listener struct {
 	Description string    `json:"description"`
 	Type        string    `json:"type"`
 	Settings    string    `json:"settings"`
-	Instance    IListener `gorm:"-"`
+	Instance    IListener `json:"instance" gorm:"-"`
 }
