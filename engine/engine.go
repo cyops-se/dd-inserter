@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"log"
 	"math"
 	"math/rand"
 	"sync"
@@ -41,7 +40,6 @@ func GetDataPoints() ([]types.VolatileDataPoint, error) {
 	for _, item := range datapoints {
 		list[i] = *item
 		i++
-		log.Println("item:", item)
 	}
 	return list, nil
 }
@@ -68,11 +66,11 @@ func InitDataPointMap() {
 
 	for _, item := range items {
 		if _, ok := datapoints[item.Name]; !ok {
-			vp := &types.VolatileDataPoint{DataPointMeta: &item}
+			vp := &types.VolatileDataPoint{DataPointMeta: item}
 			datapoints[item.Name] = vp
-		} else {
-			datapoints[item.Name].DataPointMeta = &item
 		}
+
+		datapoints[item.Name].DataPointMeta = item
 	}
 }
 
@@ -121,7 +119,6 @@ func runDataDispatch() {
 			}
 
 			entry.DataPoint = &dp
-
 			switch updateType := entry.DataPointMeta.UpdateType; updateType {
 			case types.UpdateTypePassthru:
 				entry.LastEmitted = time.Now().UTC()
@@ -213,7 +210,7 @@ func runMetaDispatch() {
 func createDataPointEntry(dp *types.DataPoint) *types.VolatileDataPoint {
 	metaitem := &types.DataPointMeta{Name: dp.Name, IntegratingDeadband: 0.3, MaxValue: 100.0}
 	db.DB.Create(&metaitem)
-	entry := &types.VolatileDataPoint{DataPoint: dp, DataPointMeta: metaitem}
+	entry := &types.VolatileDataPoint{DataPoint: dp, DataPointMeta: *metaitem}
 	datapoints[dp.Name] = entry
 	return entry
 }

@@ -54,6 +54,7 @@ func UpdateDataPoint(c *fiber.Ctx) (err error) {
 	}
 
 	engine.InitDataPointMap()
+	log.Printf("item saved: %#v", item)
 	return c.Status(200).JSON(&fiber.Map{"item": item})
 }
 

@@ -42,15 +42,15 @@ type DataPointMeta struct {
 	MinValue            float64 `json:"min"`
 	MaxValue            float64 `json:"max"`
 	Quantity            string  `json:"quantity"`
-	UpdateType          int     `json:"updatetype"` // 0 = pass thru, 1 = interval, 2 = integrating deadband
+	UpdateType          int     `json:"updatetype"` // 0 = pass thru, 1 = interval, 2 = integrating deadband, 3 = disabled
 	Interval            int     `json:"interval"`
 	IntegratingDeadband float64 `json:"integratingdeadband"`
 }
 
 type VolatileDataPoint struct {
-	DataPoint     *DataPoint     `json:"datapoint"`
-	DataPointMeta *DataPointMeta `json:"datapointmeta"`
-	StoredValue   float64        `json:"storedvalue"` // only used for the integrating deadband (floating data points)
-	Integrator    float64        `json:"integrator"`
-	LastEmitted   time.Time      `json:"lastemitted"`
+	DataPoint     *DataPoint    `json:"datapoint"`
+	DataPointMeta DataPointMeta `json:"datapointmeta"`
+	StoredValue   float64       `json:"storedvalue"` // only used for the integrating deadband (floating data points)
+	Integrator    float64       `json:"integrator"`
+	LastEmitted   time.Time     `json:"lastemitted"`
 }

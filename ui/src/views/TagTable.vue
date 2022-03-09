@@ -194,6 +194,7 @@
 </template>
 
 <script>
+  import Vue from 'vue'
   import ApiService from '@/services/api.service'
   import WebsocketService from '@/services/websocket.service'
   export default {
@@ -218,6 +219,7 @@
         },
         { text: 'Name', value: 'name', width: '20%' },
         { text: 'Description', value: 'description', width: '40%' },
+        { text: 'Value', value: 'value', width: '10%' },
         { text: 'Update Type', value: 'updatetype', width: '5%' },
         { text: 'Interval', value: 'interval', width: '5%' },
         { text: 'Integrating Deadband', value: 'integratingdeadband', width: '5%' },
@@ -254,7 +256,9 @@
     created () {
       var t = this
       WebsocketService.topic('data.point', function (topic, message) {
-        t.message = JSON.stringify(message)
+        // t.message = JSON.stringify(message)
+        var item = t.items.find(i => i.name === message.n)
+        if (item) Vue.set(item, 'value', message.v)
       })
       WebsocketService.topic('meta.message', function (topic, message) {
         // t.message = JSON.stringify(message)
@@ -335,7 +339,7 @@
             console.log('saving item: ' + JSON.stringify(this.selected[i]))
             ApiService.put('proxy/point', this.selected[i])
               .then(response => {
-                this.$notification.success(response.data.item.name + ' successfully updated!')
+                // this.$notification.success(response.data.item.name + ' successfully updated!')
               }).catch(response => {
                 this.$notification.error('Failed to update point!' + response)
               })
