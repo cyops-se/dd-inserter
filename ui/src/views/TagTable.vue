@@ -249,7 +249,7 @@
       availableUpdateTypes: ['Pass thru', 'Interval', 'Deadband', 'Disabled'],
       groups: [],
       groupsTable: {},
-      message: 'kalle',
+      message: '',
       selected: [],
     }),
 
