@@ -14,6 +14,16 @@ func Log(category string, title string, msg string) string {
 	text := fmt.Sprintf("%s: %s, %s", category, title, msg)
 	// log.Printf("%s: %s, %s", category, title, msg)
 	log.Printf(text)
+
+	var result int64
+	DB.Model(&types.Log{}).Count(&result)
+	for result > 1000 {
+		var first types.Log
+		DB.First(&first)
+		DB.Unscoped().Delete(&first)
+		result--
+	}
+
 	return text
 }
 
