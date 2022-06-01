@@ -3,6 +3,7 @@ package emitters
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/cyops-se/dd-inserter/db"
@@ -29,6 +30,15 @@ type RabbitMQDataPoint struct {
 	Value     float64   `json:"value"`
 	Status    int       `json:"status"`
 	Timestamp time.Time `json:"timestamp"`
+}
+
+type RabbitMQMetaItem struct {
+	Signal      string  `json:"signal"`
+	Description string  `json:"description"`
+	Dimension   string  `json:"dimension"`
+	Min         float64 `json:"range_min"`
+	Max         float64 `json:"range_max"`
+	Deadband    float64 `json:"deadband"`
 }
 
 func (emitter *RabbitMQEmitter) InitEmitter() error {
@@ -62,6 +72,7 @@ func (emitter *RabbitMQEmitter) InitEmitter() error {
 
 	emitter.messages = make(chan *types.DataPoint, 2000)
 	go emitter.processMessages()
+	go emitter.syncMetaRabbit()
 
 	emitter.initialized = true
 	db.Log("info", "RABBITMQ emitter", fmt.Sprintf("RabbitMQ server connected: %s", emitter.Urls))
@@ -120,9 +131,68 @@ func (emitter *RabbitMQEmitter) processMessages() {
 	}
 }
 
+// Implement IEmitter interface
 func (emitter *RabbitMQEmitter) ProcessMeta(dp *types.DataPointMeta) {
 }
 
+// Implement IEmitter interface
 func (emitter *RabbitMQEmitter) GetStats() *types.EmitterStatistics {
 	return nil
+}
+
+func (emitter *RabbitMQEmitter) syncMetaRabbit() {
+	ticker := time.NewTicker(30 * time.Second)
+	var prevmetaitems []types.DataPointMeta
+	var dosend bool
+	for {
+		<-ticker.C
+		var metaitems []types.DataPointMeta
+		if err := db.DB.Find(&metaitems).Error; err != nil {
+			fmt.Println("TIMESCALE failed to get meta items,", err.Error())
+			continue
+		}
+
+		// Check individual items (discard items no longer in db)
+		for _, dp := range metaitems {
+			dosend = true
+			for _, pdp := range prevmetaitems {
+				if reflect.DeepEqual(dp, pdp) {
+					dosend = false
+					continue
+				}
+			}
+
+			if dosend {
+				emitter.sendMetaRabbit(&dp)
+			}
+		}
+
+		prevmetaitems = metaitems
+	}
+}
+
+func (emitter *RabbitMQEmitter) sendMetaRabbit(dp *types.DataPointMeta) {
+	msg := &RabbitMQMetaItem{}
+	msg.Signal = dp.Name
+	msg.Description = dp.Description
+	msg.Dimension = dp.EngUnit
+	msg.Max = dp.MaxValue
+	msg.Min = dp.MinValue
+	msg.Deadband = dp.IntegratingDeadband
+
+	body, _ := json.Marshal(msg)
+
+	emitter.err = emitter.channel.Publish(
+		"",            // exchange
+		"me-metadata", // routing key
+		false,         // mandatory
+		false,         // immediate
+		amqp.Publishing{
+			ContentType: "text/json",
+			Body:        body,
+		})
+
+	if emitter.err != nil {
+		db.Log("error", "RabbitMQ emitter", fmt.Sprintf("Failed to publish meta message: %v", emitter.err.Error()))
+	}
 }
