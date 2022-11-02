@@ -18,6 +18,7 @@ type RabbitMQEmitter struct {
 	Urls        []string              `json:"urls"`
 	ChannelName string                `json:"channel"`
 	Durable     bool                  `json:"durable"`
+	Lazy        bool                  `json:"lazy"`
 	connection  *rabbitmq.Connection  `json:"-"`
 	channel     *rabbitmq.Channel     `json:"-"`
 	queue       amqp.Queue            `json:"-"`
@@ -57,13 +58,19 @@ func (emitter *RabbitMQEmitter) InitEmitter() error {
 
 	emitter.channel, emitter.err = emitter.connection.Channel()
 
+	var args amqp.Table
+	if emitter.Lazy {
+		args = make(amqp.Table)
+		args["x-queue-mode"] = "lazy"
+	}
+
 	emitter.queue, emitter.err = emitter.channel.QueueDeclare(
 		emitter.ChannelName, // name
 		emitter.Durable,     // durable
 		false,               // delete when unused
 		false,               // exclusive
 		false,               // no-wait
-		nil,                 // arguments
+		args,                // arguments (lazy)
 	)
 
 	if emitter.err != nil {

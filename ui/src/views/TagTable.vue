@@ -293,7 +293,7 @@
         ApiService.get('proxy/point')
           .then(response => {
             this.items = response.data
-            this.items.forEach(i => i.dname = i.alias || i.name)
+            this.items.forEach(i => { i.dname = i.alias || i.name })
           }).catch(response => {
             console.log('ERROR response: ' + JSON.stringify(response))
           })
@@ -468,7 +468,7 @@
         // console.log('all items: ' + JSON.stringify(this.items))
         // keep changed items in the table
         this.items = this.items.filter(item => (item?.changed === true || item?.new === true) || false)
-        this.items.forEach(i => i.dname = i.alias || i.name)
+        this.items.forEach(i => { i.dname = i.alias || i.name })
 
         // console.log('changed items: ' + JSON.stringify(this.items))
 

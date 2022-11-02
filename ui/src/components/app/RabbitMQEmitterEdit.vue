@@ -18,6 +18,15 @@
       />
     </v-col>
     <v-col cols="12">
+      <v-checkbox
+        v-model="item.instance.lazy"
+        label="Lazy"
+        hide-details
+        class="mt-n3"
+        :value="item.instance.lazy"
+      />
+    </v-col>
+    <v-col cols="12">
       <list-edit :items="item.instance.urls" />
     </v-col>
   </v-row>
