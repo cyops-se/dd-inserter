@@ -46,7 +46,7 @@ func GetDataPoints(c *fiber.Ctx) (err error) {
 func UpdateDataPoint(c *fiber.Ctx) (err error) {
 	var item types.DataPointMeta
 	if err = c.BodyParser(&item); err == nil {
-		if err = db.DB.Updates(&item).Error; err != nil {
+		if err = db.DB.Save(&item).Error; err != nil {
 			return handleError(c, err)
 		}
 	} else {
@@ -63,9 +63,16 @@ func UpdateDataPoints(c *fiber.Ctx) (err error) {
 	failedcount := 0
 	if err = c.BodyParser(&items); err == nil {
 		for _, item := range items {
-			if err = db.DB.Updates(&item).Error; err != nil {
-				log.Printf("Failed to save item: %#v, error: %s", item, err.Error())
-				failedcount++
+			if item.ID > 0 {
+				if err = db.DB.Save(&item).Error; err != nil {
+					log.Printf("Failed to save item: %#v, error: %s", item, err.Error())
+					failedcount++
+				}
+			} else {
+				if err = db.DB.Create(&item).Error; err != nil {
+					log.Printf("Failed to create item: %#v, error: %s", item, err.Error())
+					failedcount++
+				}
 			}
 		}
 	} else {

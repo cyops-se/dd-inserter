@@ -218,6 +218,10 @@ func (emitter *TimescaleEmitter) syncMeta() {
 		}
 
 		for _, dp := range metaitems {
+			if strings.TrimSpace(dp.Alias) != "" {
+				dp.Name = dp.Alias
+			}
+
 			var id int
 			if emitter.rowExists("select name from measurements.tags where name=$1", dp.Name) == false {
 				if err := TimescaleDBConn.QueryRow(context.Background(), "insert into measurements.tags (name,unit,min,max,description) values ($1,$2,$3,$4,$5) returning tag_id",

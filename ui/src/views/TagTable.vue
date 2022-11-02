@@ -88,6 +88,18 @@
                   </v-row>
                   <v-row>
                     <v-col
+                      cols="12"
+                    >
+                      <v-text-field
+                        v-if="editedIndex != -2"
+                        v-model="editedItem.alias"
+                        label="Alias"
+                        hide-details
+                      />
+                    </v-col>
+                  </v-row>
+                  <v-row>
+                    <v-col
                       cols="4"
                     >
                       <v-text-field
@@ -217,12 +229,15 @@
           value: 'id',
           width: 75,
         },
-        { text: 'Name', value: 'name', width: '20%' },
+        { text: 'Name/Alias', value: 'dname', width: '20%' },
         { text: 'Description', value: 'description', width: '40%' },
         { text: 'Value', value: 'value', width: '10%' },
         { text: 'Update Type', value: 'updatetype', width: '5%' },
         { text: 'Interval', value: 'interval', width: '5%' },
         { text: 'Integrating Deadband', value: 'integratingdeadband', width: '5%' },
+        { text: 'T', value: 'threshold', width: '5%' },
+        { text: 'I', value: 'integrator', width: '5%' },
+        { text: 'R', value: 'raw', width: '5%' },
         { text: 'Min', value: 'min', width: '5%' },
         { text: 'Max', value: 'max', width: '5%' },
         { text: 'Unit', value: 'engunit', width: '5%' },
@@ -257,11 +272,17 @@
       var t = this
       WebsocketService.topic('data.point', function (topic, message) {
         // t.message = JSON.stringify(message)
-        var item = t.items.find(i => i.name === message.n)
-        if (item) Vue.set(item, 'value', message.v)
+        var item = t.items.find(i => i.dname === message.n)
+        if (item) Vue.set(item, 'value', parseFloat(message.v).toFixed(2))
       })
-      WebsocketService.topic('meta.message', function (topic, message) {
+      WebsocketService.topic('meta.entry', function (topic, message) {
         // t.message = JSON.stringify(message)
+        var item = t.items.find(i => i.dname === message.datapoint.n)
+        if (item) {
+          Vue.set(item, 'integrator', parseFloat(message.integrator).toFixed(2))
+          Vue.set(item, 'threshold', parseFloat(message.threshold).toFixed(2))
+          Vue.set(item, 'raw', parseFloat(message.datapoint.v).toFixed(2))
+        }
       })
 
       this.refresh()
@@ -272,6 +293,7 @@
         ApiService.get('proxy/point')
           .then(response => {
             this.items = response.data
+            this.items.forEach(i => i.dname = i.alias || i.name)
           }).catch(response => {
             console.log('ERROR response: ' + JSON.stringify(response))
           })
@@ -325,6 +347,7 @@
           ApiService.put('proxy/point', this.editedItem)
             .then(response => {
               this.$notification.success(response.data.item.name + ' successfully updated!')
+              this.refresh()
             }).catch(response => {
               this.$notification.error('Failed to update point!' + response)
             })
@@ -336,15 +359,14 @@
             this.selected[i].min = this.editedItem.min
             this.selected[i].max = this.editedItem.max
             this.selected[i].engunit = this.editedItem.engunit
-            console.log('saving item: ' + JSON.stringify(this.selected[i]))
             ApiService.put('proxy/point', this.selected[i])
               .then(response => {
                 // this.$notification.success(response.data.item.name + ' successfully updated!')
+                this.refresh()
               }).catch(response => {
                 this.$notification.error('Failed to update point!' + response)
               })
           }
-          console.log('saving items ...')
         }
         this.close()
       },
@@ -389,6 +411,7 @@
         // col 6: update type (0 = pass thru, 1 = interval, 2 = integrating deadband, 3 = disabled)
         // col 7: interval value
         // col 8: integrating deadband value
+        // col 9: alias to be used instead of name if specified
 
         for (var mi = 0; mi < records.length; mi++) {
           var record = records[mi]
@@ -401,21 +424,24 @@
           var updatetype = parseInt(record[6])
           var interval = parseInt(record[7])
           var integratingdeadband = parseFloat(record[8])
+          var alias = record[9]
 
           if (inuse !== 'x') continue
-          // if (tagname !== 'A001092AQ900') continue
 
+          var found = false
           for (var i = 0; i < this.items.length; i++) {
             var item = this.items[i]
 
-            if (item.name.indexOf(tagname) === -1) continue
+            if (item.name !== tagname) continue
+            found = true
             var same = item.description === description
             if (same) same = item.engunit === engunit
-            if (same) same &= item.min === min
-            if (same) same &= item.max === max
-            if (same) same &= item.updatetype === updatetype
-            if (same && updatetype === 1) same &= item.interval === interval
-            if (same && updatetype === 2) same &= item.integratingdeadband === integratingdeadband
+            if (same) same = item.min === min
+            if (same) same = item.max === max
+            if (same) same = item.updatetype === updatetype
+            if (same && updatetype === 1) same = item.interval === interval
+            if (same && updatetype === 2) same = item.integratingdeadband === integratingdeadband
+            if (same) same = item.alias === alias
 
             if (!same) {
               item.description = description
@@ -425,17 +451,24 @@
               item.updatetype = updatetype
               if (updatetype === 1) item.interval = interval
               if (updatetype === 2) item.integratingdeadband = integratingdeadband
+              item.alias = alias
               item.changed = true
             } else {
               item.changed = false
             }
             break
           }
+
+          if (!found) {
+            var newitem = { name: tagname, description: description, engunit: engunit, min: min, max: max, updatetype: updatetype, interval: interval, integratingdeadband: integratingdeadband, alias: alias, new: true }
+            this.items.push(newitem)
+          }
         }
 
         // console.log('all items: ' + JSON.stringify(this.items))
         // keep changed items in the table
-        this.items = this.items.filter(item => item?.changed === true || false)
+        this.items = this.items.filter(item => (item?.changed === true || item?.new === true) || false)
+        this.items.forEach(i => i.dname = i.alias || i.name)
 
         // console.log('changed items: ' + JSON.stringify(this.items))
 
@@ -459,6 +492,7 @@
       saveChanged () {
         this.saveChangedDisabled = true
         var t = this
+        console.log('items: ' + JSON.stringify(this.items))
         ApiService.post('proxy/points', this.items)
           .then(response => {
             t.$notification.success('Changes saved')

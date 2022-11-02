@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/cyops-se/dd-inserter/db"
@@ -75,7 +76,7 @@ func (emitter *RabbitMQEmitter) InitEmitter() error {
 	go emitter.syncMetaRabbit()
 
 	emitter.initialized = true
-	db.Log("info", "RABBITMQ emitter", fmt.Sprintf("RabbitMQ server connected: %s", emitter.Urls))
+	db.Log("info", "RABBITMQ emitter", fmt.Sprintf("RabbitMQ server connected: %s", emitter.ChannelName))
 	return nil
 }
 
@@ -179,6 +180,10 @@ func (emitter *RabbitMQEmitter) sendMetaRabbit(dp *types.DataPointMeta) {
 	msg.Max = dp.MaxValue
 	msg.Min = dp.MinValue
 	msg.Deadband = dp.IntegratingDeadband
+
+	if strings.TrimSpace(dp.Alias) != "" {
+		msg.Signal = dp.Alias
+	}
 
 	body, _ := json.Marshal(msg)
 

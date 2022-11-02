@@ -3,6 +3,7 @@ package engine
 import (
 	"math"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -118,6 +119,10 @@ func runDataDispatch() {
 				entry = createDataPointEntry(&dp)
 			}
 
+			if strings.TrimSpace(entry.DataPointMeta.Alias) != "" {
+				dp.Name = entry.DataPointMeta.Alias
+			}
+
 			entry.DataPoint = &dp
 			switch updateType := entry.DataPointMeta.UpdateType; updateType {
 			case types.UpdateTypePassthru:
@@ -129,9 +134,10 @@ func runDataDispatch() {
 				// Check deadband
 				if _, ok := dp.Value.(float64); ok {
 					value := dp.Value.(float64)
-					entry.Integrator += (entry.StoredValue - value)
-					dividend := calculateDivedend(entry, value)
-					if math.Abs(entry.Integrator/dividend) > entry.DataPointMeta.IntegratingDeadband {
+					difference := calculateDifference(entry, value)
+					entry.Integrator += (value - entry.StoredValue)
+					entry.Threshold = difference * entry.DataPointMeta.IntegratingDeadband
+					if math.Abs(entry.Integrator) > entry.Threshold {
 						entry.StoredValue = value
 						entry.Integrator = 0.0
 						entry.LastEmitted = time.Now().UTC()
@@ -147,6 +153,8 @@ func runDataDispatch() {
 					totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
 				}
 			}
+
+			NotifySubscribers("meta.entry", entry)
 		}
 
 		dpLock.Unlock()
@@ -165,12 +173,14 @@ func runDataDispatch() {
 	}
 }
 
-func calculateDivedend(entry *types.VolatileDataPoint, value float64) float64 {
+func calculateDifference(entry *types.VolatileDataPoint, value float64) float64 {
 	if value > entry.DataPointMeta.MaxValue {
+		db.Trace("Meta data adjusted", "Adjusting MAX value for item: %s, from: %f to %f", entry.DataPoint.Name, entry.DataPointMeta.MaxValue, value)
 		entry.DataPointMeta.MaxValue = value
 	}
 
 	if value < entry.DataPointMeta.MinValue {
+		db.Trace("Meta data adjusted", "Adjusting MIN value for item: %s, from: %f to %f", entry.DataPoint.Name, entry.DataPointMeta.MinValue, value)
 		entry.DataPointMeta.MinValue = value
 	}
 

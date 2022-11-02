@@ -45,6 +45,7 @@ type DataPointMeta struct {
 	UpdateType          int     `json:"updatetype"` // 0 = pass thru, 1 = interval, 2 = integrating deadband, 3 = disabled
 	Interval            int     `json:"interval"`
 	IntegratingDeadband float64 `json:"integratingdeadband"`
+	Alias               string  `json:"alias"`
 }
 
 type VolatileDataPoint struct {
@@ -52,5 +53,6 @@ type VolatileDataPoint struct {
 	DataPointMeta DataPointMeta `json:"datapointmeta"`
 	StoredValue   float64       `json:"storedvalue"` // only used for the integrating deadband (floating data points)
 	Integrator    float64       `json:"integrator"`
+	Threshold     float64       `json:"threshold"`
 	LastEmitted   time.Time     `json:"lastemitted"`
 }
