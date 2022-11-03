@@ -375,8 +375,8 @@
         let csvContent = 'data:text/csv;charset=utf-8,'
 
         csvContent += [
-          'inuse;name;description;min;max;unit;type;interval;integratingdeadband;',
-          ...this.items.map(item => 'x;' + item.name + ';' + item.description + ';' + parseFloat(item.min) + ';' + parseFloat(item.max) + ';' + item.engunit + ';' + parseInt(item.updatetype) + ';' + parseInt(item.interval) + ';' + parseFloat(item.integratingdeadband) + ';'),
+          'inuse;name;description;min;max;unit;type;interval;integratingdeadband;alias;',
+          ...this.items.map(item => 'x;' + item.name + ';' + item.description + ';' + parseFloat(item.min) + ';' + parseFloat(item.max) + ';' + item.engunit + ';' + parseInt(item.updatetype) + ';' + parseInt(item.interval) + ';' + parseFloat(item.integratingdeadband) + ';' + item.alias + ';'),
         ]
           .join('\n')
           .replace(/(^\[)|(\]$)/gm, '')
