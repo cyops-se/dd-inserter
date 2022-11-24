@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/cyops-se/dd-inserter/types"
@@ -61,7 +62,7 @@ func listenForIncoming(ctx *context) {
 	}
 
 	var h header
-	p := make([]byte, 2048) // 2KB for header must be sufficient
+	p := make([]byte, 1200)
 
 	log.Println("UDP listening for FILE data header ...")
 
@@ -76,14 +77,19 @@ func listenForIncoming(ctx *context) {
 		}
 
 		data := string(p[:n])
-		n, err = fmt.Sscanf(data, "DD-FILETRANSFER %s %s %d %x", &h.filename, &h.directory, &h.size, &h.hashvalue)
-		if n != 4 || err != nil {
-			// log.Printf("Failed to read 4 items from header, got %d, error: %s", n, err.Error())
+		count, err := fmt.Sscanf(data, "DD-FILETRANSFER BEGIN v2 %s %s %d %x", &h.filename, &h.directory, &h.size, &h.hashvalue)
+		if count != 4 || err != nil {
+			if strings.HasPrefix(data, "DD-FILETRANSFER END v2") {
+				continue
+			}
+
+			log.Printf("Failed to read 4 items from header, got %d, error: %s", count, err.Error())
+			// log.Println("-----------\n" + data + "\n-----------\n")
 			continue
 		}
 
 		// Got header, now receive the file
-		log.Printf("header: %s", data)
+		log.Printf("BEGIN transfer file: %s, dir: %s, size: %d, hash: %x", h.filename, h.directory, h.size, h.hashvalue)
 		receiveFile(ctx, h, ser)
 	}
 }
@@ -101,13 +107,15 @@ func receiveFile(ctx *context, h header, ser *net.UDPConn) {
 	previousCounter := uint32(0)
 	totalmissing := uint32(0)
 
-	p := make([]byte, 1024*1024*8) // 8MB
+	p := make([]byte, 1200)
 
 	start := time.Now()
 	for totalsize < h.size {
 		ser.SetReadDeadline(time.Now().Add(time.Millisecond * 1000))
 		if n, _, err := ser.ReadFromUDP(p); err == nil {
 			counter := binary.LittleEndian.Uint32(p)
+			chunksize := binary.LittleEndian.Uint32(p[4:])
+			// log.Printf("Chunk counter: %d, size: %d, bytes read: %d, content: %s", counter, chunksize, n, string(p[8:n-8]))
 
 			missing := counter - (previousCounter + 1)
 			totalmissing += missing
@@ -118,8 +126,9 @@ func receiveFile(ctx *context, h header, ser *net.UDPConn) {
 
 			previousCounter = counter
 
-			file.Write(p[4:n])
-			totalsize += (n - 4)
+			file.Write(p[8 : chunksize+8])
+			// totalsize += (n - 8)
+			totalsize += int(chunksize)
 			count++
 
 			if count%1000 == 0 {
@@ -131,10 +140,23 @@ func receiveFile(ctx *context, h header, ser *net.UDPConn) {
 			break
 		}
 	}
+
+	// There is a bug in dd-opcda in production that sends the last content package
+	// twice. This piece will empty the UDP pipe after each file
+
+	for {
+		if trailingcount, _, _ := ser.ReadFromUDP(p); trailingcount > 0 {
+			if strings.HasPrefix(string(p), "DD-FILETRANSFER END") {
+				// log.Println("END OF FILE TRANSFER DETECTED")
+				break
+			}
+		}
+	}
+
 	end := time.Now()
 
 	percent := (float64(totalsize) / float64(h.size)) * 100.0
-	log.Printf("Final result: %.2f, %d (%d), packets: %d, time: %d\n", percent, totalsize, h.size, count, end.Sub(start)/time.Second)
+	log.Printf("END file transfer: %.2f, %d (%d), packets: %d, time: %d\n", percent, totalsize, h.size, count, end.Sub(start)/time.Second)
 
 	file.Close()
 	hash := calcHash(filename)
