@@ -148,14 +148,15 @@
                       cols="12"
                     >
                       <v-text-field
-                        v-if="editedItem.ut === 'Interval'"
-                        v-model.number="editedItem.interval"
+                        v-if="editedItem.ut === 'Interval' || editedItem.ut === 'Deadband & Interval'"
+                        v-model.number="editedItem.interval"                        
+                        class="mb-4"
                         label="Interval"
                         hide-details
                         outlined
                       />
                       <v-text-field
-                        v-if="editedItem.ut === 'Deadband'"
+                        v-if="editedItem.ut === 'Deadband' || editedItem.ut === 'Deadband & Interval'"
                         v-model.number="editedItem.integratingdeadband"
                         label="Integrating Deadband"
                         hide-details
@@ -261,7 +262,7 @@
         max: 100,
         engunit: '',
       },
-      availableUpdateTypes: ['Pass thru', 'Interval', 'Deadband', 'Disabled'],
+      availableUpdateTypes: ['Pass thru', 'Interval', 'Deadband', 'Deadband & Interval', 'Disabled'],
       groups: [],
       groupsTable: {},
       message: '',
@@ -272,6 +273,7 @@
       var t = this
       WebsocketService.topic('data.point', function (topic, message) {
         // t.message = JSON.stringify(message)
+        if (typeof message.v === 'boolean') message.v = message.v ? 1.0 : 0.0
         var item = t.items.find(i => i.dname === message.n)
         if (item) Vue.set(item, 'value', parseFloat(message.v).toFixed(2))
       })

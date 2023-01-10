@@ -130,6 +130,13 @@ func runDataDispatch() {
 				NewEmitMsg <- dp
 				totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
 
+			case types.UpdateTypeInterval:
+				if time.Now().UTC().Sub(entry.LastEmitted) > time.Duration(entry.DataPointMeta.Interval)*time.Second {
+					entry.LastEmitted = time.Now().UTC()
+					NewEmitMsg <- dp
+					totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
+				}
+
 			case types.UpdateTypeDeadband:
 				// Check deadband
 				if _, ok := dp.Value.(float64); ok {
@@ -146,11 +153,26 @@ func runDataDispatch() {
 					}
 				}
 
-			case types.UpdateTypeInterval:
-				if time.Since(entry.LastEmitted) > time.Duration(entry.DataPointMeta.Interval)*time.Second {
-					entry.LastEmitted = time.Now().UTC()
-					NewEmitMsg <- dp
-					totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
+			case types.UpdateTypeDeadbandAndInterval:
+				// Check deadband
+				if _, ok := dp.Value.(float64); ok {
+					value := dp.Value.(float64)
+					difference := calculateDifference(entry, value)
+					entry.Integrator += (value - entry.StoredValue)
+					entry.Threshold = difference * entry.DataPointMeta.IntegratingDeadband
+					if math.Abs(entry.Integrator) > entry.Threshold {
+						entry.StoredValue = value
+						entry.Integrator = 0.0
+						entry.LastEmitted = time.Now().UTC()
+						NewEmitMsg <- dp
+						totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
+					} else if time.Now().UTC().Sub(entry.LastEmitted) > time.Duration(entry.DataPointMeta.Interval)*time.Second {
+						entry.StoredValue = value
+						entry.Integrator = 0.0
+						entry.LastEmitted = time.Now().UTC()
+						NewEmitMsg <- dp
+						totalUpdated.DataPoint.Value = totalUpdated.DataPoint.Value.(uint64) + 1
+					}
 				}
 			}
 

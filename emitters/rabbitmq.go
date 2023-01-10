@@ -111,6 +111,11 @@ func (emitter *RabbitMQEmitter) processMessages() {
 			dp.Value = float64(v)
 		case float32:
 			dp.Value = float64(v)
+		case bool:
+			dp.Value = 0.0
+			if v {
+				dp.Value = 1.0
+			}
 		default:
 			db.Log("error", "RabbitMQ emitter", fmt.Sprintf("Datapoint '%s' has an unsupported type: '%T'", dp.Name, dp.Value))
 			continue

@@ -65,6 +65,14 @@ func (emitter *TimescaleEmitter) processMessages() {
 			}
 		}
 
+		if _, isbool := dp.Value.(bool); isbool {
+			if dp.Value.(bool) {
+				dp.Value = 1.0
+			} else {
+				dp.Value = 0.0
+			}
+		}
+
 		var err error
 		_, isfloat64 := dp.Value.(float64)
 		_, isint := dp.Value.(int)

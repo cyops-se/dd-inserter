@@ -10,10 +10,11 @@ const (
 )
 
 const (
-	UpdateTypePassthru = iota
-	UpdateTypeInterval = iota
-	UpdateTypeDeadband = iota
-	UpdateTypeDevNull  = iota
+	UpdateTypePassthru            = iota
+	UpdateTypeInterval            = iota
+	UpdateTypeDeadband            = iota
+	UpdateTypeDeadbandAndInterval = iota
+	UpdateTypeDevNull             = iota
 )
 
 // Version 2 message types
