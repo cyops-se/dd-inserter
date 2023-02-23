@@ -1,14 +1,34 @@
-# Download and invoke cyclonedx-gomod in a single step
-- name: Generate SBOM
-  uses: CycloneDX/gh-gomod-generate-sbom@v1
-  with:
-    version: v1
-    args: mod -licenses -json -output bom.json
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
 
-# Just download cyclonedx-gomod and call it in a later step
-- name: Download cyclonedx-gomod
-  uses: CycloneDX/gh-gomod-generate-sbom@v1
-  with:
-    version: v1
-- name: Generate SBOM
-  run: cyclonedx-gomod app -licenses -files -output bom.xml -main dd-inserter
+permissions:
+  contents: read
+  pull-requests: read
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  check-links:
+    runs-on: ${{ fromJSON('["ubuntu-latest", "self-hosted"]') }}
+    steps:
+      # Download and invoke cyclonedx-gomod in a single step
+      - name: Generate SBOM
+        uses: CycloneDX/gh-gomod-generate-sbom@v1
+        with:
+          version: v1
+          args: mod -licenses -json -output bom.json
+
+      # Just download cyclonedx-gomod and call it in a later step
+      - name: Download cyclonedx-gomod
+        uses: CycloneDX/gh-gomod-generate-sbom@v1
+        with:
+          version: v1
+      - name: Generate SBOM
+        run: cyclonedx-gomod app -licenses -files -output bom.xml -main dd-inserter
